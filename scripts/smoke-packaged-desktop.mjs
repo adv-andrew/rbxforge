@@ -16,7 +16,25 @@ const desktopRoot = resolve(repositoryRoot, "apps/desktop");
 const desktopRequire = createRequire(resolve(desktopRoot, "package.json"));
 const defaultAppPath = resolve(artifactsRoot, "desktop/mac-arm64/RbxForge.app");
 const requestedAppPath = resolve(process.argv[2] ?? defaultAppPath);
-export const PACKAGED_DESKTOP_SCREENSHOT_PATH = resolve(artifactsRoot, "rbxforge-packaged-1280x800.png");
+export const PACKAGED_DESKTOP_SCREENSHOT_PATH = resolve(artifactsRoot, "rbxforge-packaged.png");
+const PACKAGED_DESKTOP_REQUESTED_SIZE = Object.freeze([1280, 800]);
+const PACKAGED_DESKTOP_MINIMUM_SIZE = Object.freeze([960, 640]);
+
+export function assertPackagedWindowSize(value) {
+  const [width, height] = Array.isArray(value) ? value : [];
+  if (
+    value?.length !== 2 ||
+    !Number.isInteger(width) ||
+    !Number.isInteger(height) ||
+    width < PACKAGED_DESKTOP_MINIMUM_SIZE[0] ||
+    height < PACKAGED_DESKTOP_MINIMUM_SIZE[1] ||
+    width > PACKAGED_DESKTOP_REQUESTED_SIZE[0] ||
+    height > PACKAGED_DESKTOP_REQUESTED_SIZE[1]
+  ) {
+    throw new Error(`Packaged window geometry smoke failed: ${JSON.stringify(value)}`);
+  }
+  return Object.freeze([width, height]);
+}
 
 export async function smokePackagedDesktop(appPath = requestedAppPath) {
   const executable = resolve(appPath, "Contents/MacOS/RbxForge");
@@ -24,7 +42,9 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
   const userData = await mkdtemp(resolve(tmpdir(), "rbxforge-packaged-user-data-"));
   const rendererErrors = [];
   let electronApp;
+  let rendererSize;
   let screenshot;
+  let windowSize;
   try {
     const { _electron } = desktopRequire("@playwright/test");
     const loader = resolvePlaywrightElectronLoader();
@@ -62,8 +82,10 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
         nonce: nonceMeta?.nonce,
         styleNonce: nonceStyle?.nonce,
         onboarding: rendererDocument.body.textContent?.includes("Build locally with RbxForge") === true,
+        viewport: [globalThis.innerWidth, globalThis.innerHeight],
       };
     });
+    rendererSize = assertPackagedWindowSize(renderer.viewport);
     if (
       renderer.title !== "RbxForge" ||
       renderer.platform !== "darwin" ||
@@ -82,6 +104,7 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
       return {
         windowCount: windows.length,
         title: window.getTitle(),
+        minimumSize: window.getMinimumSize(),
         size: window.getSize(),
         preferences: window.webContents.getLastWebPreferences(),
         url: window.webContents.getURL(),
@@ -90,7 +113,6 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
     if (
       main.windowCount !== 1 ||
       main.title !== "RbxForge" ||
-      JSON.stringify(main.size) !== JSON.stringify([1280, 800]) ||
       main.preferences?.nodeIntegration !== false ||
       main.preferences?.contextIsolation !== true ||
       main.preferences?.sandbox !== true ||
@@ -100,11 +122,15 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
     ) {
       throw new Error(`Packaged BrowserWindow security smoke failed: ${JSON.stringify(main)}`);
     }
+    windowSize = assertPackagedWindowSize(main.size);
+    if (JSON.stringify(main.minimumSize) !== JSON.stringify(PACKAGED_DESKTOP_MINIMUM_SIZE)) {
+      throw new Error(`Packaged minimum window geometry smoke failed: ${JSON.stringify(main.minimumSize)}`);
+    }
     await page.waitForTimeout(250);
     if (rendererErrors.length > 0) {
       throw new Error(`Packaged renderer emitted errors: ${rendererErrors.join(" | ")}`);
     }
-    screenshot = await capturePackagedOnboardingScreenshot(page);
+    screenshot = await capturePackagedOnboardingScreenshot(page, PACKAGED_DESKTOP_SCREENSHOT_PATH, rendererSize);
     const databasePath = resolve(userData, "rbxforge.sqlite");
     await access(databasePath);
     const sqlite = await smokeRunAsNodeSqlite(executable, resources, databasePath);
@@ -118,7 +144,10 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
     appPath,
     window: {
       title: "RbxForge",
-      size: [1280, 800],
+      requestedSize: PACKAGED_DESKTOP_REQUESTED_SIZE,
+      minimumSize: PACKAGED_DESKTOP_MINIMUM_SIZE,
+      size: windowSize,
+      viewportSize: rendererSize,
       onboarding: true,
       rendererErrors: 0,
       screenshot,
@@ -130,7 +159,11 @@ export async function smokePackagedDesktop(appPath = requestedAppPath) {
   return report;
 }
 
-export async function capturePackagedOnboardingScreenshot(page, screenshotPath = PACKAGED_DESKTOP_SCREENSHOT_PATH) {
+export async function capturePackagedOnboardingScreenshot(
+  page,
+  screenshotPath = PACKAGED_DESKTOP_SCREENSHOT_PATH,
+  expectedSize,
+) {
   await mkdir(dirname(screenshotPath), { recursive: true });
   const image = await page.screenshot({
     animations: "disabled",
@@ -141,8 +174,14 @@ export async function capturePackagedOnboardingScreenshot(page, screenshotPath =
   const pngSignature = image.subarray(0, 8).toString("hex");
   const width = image.length >= 24 ? image.readUInt32BE(16) : 0;
   const height = image.length >= 24 ? image.readUInt32BE(20) : 0;
-  if (pngSignature !== "89504e470d0a1a0a" || width !== 1_280 || height !== 800) {
-    throw new Error(`Packaged screenshot is not the exact 1280x800 PNG: ${width}x${height}`);
+  if (pngSignature !== "89504e470d0a1a0a") {
+    throw new Error("Packaged screenshot is not a PNG.");
+  }
+  assertPackagedWindowSize([width, height]);
+  if (expectedSize !== undefined && (width !== expectedSize[0] || height !== expectedSize[1])) {
+    throw new Error(
+      `Packaged screenshot does not match renderer viewport ${expectedSize[0]}x${expectedSize[1]}: got ${width}x${height}.`,
+    );
   }
   return Object.freeze({ path: screenshotPath, bytes: image.length, width, height });
 }
