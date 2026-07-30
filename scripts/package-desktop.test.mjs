@@ -7,6 +7,7 @@ import test from "node:test";
 import {
   assertDesktopStageAllowlist,
   auditDarwinArm64Prebuild,
+  resolveElectronContentsRoot,
   resolveDesktopHandoffOutputRoot,
   stageCuratedBetterSqlite,
   walkRegularFiles,
@@ -24,6 +25,27 @@ const expectedNativeSha256 = "b4dae3b865846f5336b83d0b8c1f5755bcc6cfef49d612afe5
 test("desktop handoff output stays repository-local outside controller worktrees", () => {
   assert.equal(resolveDesktopHandoffOutputRoot("/repo"), "/repo/outputs");
   assert.equal(resolveDesktopHandoffOutputRoot("/repo/.worktrees/standalone"), "/repo/outputs");
+});
+
+test("packaging resolves Electron through its lazy installer before inspecting the pinned app bundle", () => {
+  const packageRoot = "/repo/node_modules/electron";
+  const executable = `${packageRoot}/dist/Electron.app/Contents/MacOS/Electron`;
+  const calls = [];
+  const loadElectron = (id) => {
+    calls.push(id);
+    return executable;
+  };
+  loadElectron.resolve = (id) => {
+    assert.equal(id, "electron/package.json");
+    return `${packageRoot}/package.json`;
+  };
+
+  assert.equal(resolveElectronContentsRoot(loadElectron), `${packageRoot}/dist/Electron.app/Contents`);
+  assert.deepEqual(calls, ["electron"]);
+
+  const mismatchedElectron = () => "/tmp/unpinned/Electron.app/Contents/MacOS/Electron";
+  mismatchedElectron.resolve = loadElectron.resolve;
+  assert.throws(() => resolveElectronContentsRoot(mismatchedElectron), /pinned Electron package/i);
 });
 
 test("the shipped Darwin arm64 SQLite prebuild is exact and changed bytes fail closed", async () => {

@@ -38,6 +38,17 @@ export function resolveDesktopHandoffOutputRoot(root) {
   return basename(parent) === ".worktrees" ? resolve(parent, "..", "outputs") : resolve(root, "outputs");
 }
 
+export function resolveElectronContentsRoot(loadElectron) {
+  const electronPackageRoot = dirname(loadElectron.resolve("electron/package.json"));
+  const contentsRoot = resolve(electronPackageRoot, "dist/Electron.app/Contents");
+  const expectedExecutable = resolve(contentsRoot, "MacOS/Electron");
+  const executable = loadElectron("electron");
+  if (typeof executable !== "string" || resolve(executable) !== expectedExecutable) {
+    throw new Error("Electron executable did not resolve from the pinned Electron package.");
+  }
+  return contentsRoot;
+}
+
 export const AUDITED_BETTER_SQLITE = Object.freeze({
   version: "13.0.1",
   native: Object.freeze({
@@ -373,12 +384,12 @@ function isApprovedDesktopStageFile(path, runtimeFiles) {
 async function packageDesktop() {
   assertDarwinArm64Host();
   const desktopRequire = createRequire(desktopPackageJson);
+  const electronContentsRoot = resolveElectronContentsRoot(desktopRequire);
   await buildDesktop();
   await generateDesktopBrand();
   const stage = await stageDesktopApplication();
-  const electronPackageRoot = dirname(desktopRequire.resolve("electron/package.json"));
   const packageManifest = await createDesktopPackageManifest({
-    electronContentsRoot: resolve(electronPackageRoot, "dist/Electron.app/Contents"),
+    electronContentsRoot,
     iconPath: resolve(desktopRoot, "build/rbxforge.icns"),
     sqliteNativePath: resolve(stage.root, "node_modules/better-sqlite3", AUDITED_BETTER_SQLITE.native.relative),
     vendorRoot: resolve(desktopDist, "vendor"),
