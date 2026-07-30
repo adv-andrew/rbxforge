@@ -8,8 +8,8 @@ const childProgram = [
   "console.error(`diagnostic ${secret}`);",
   "if (mode === 'error') throw new Error('startup failure');",
   "if (mode === 'exit') process.exit(7);",
-  "if (mode === 'split') { process.stderr.write('running on '); setTimeout(() => process.stderr.write('stdio\\n'), 5); } else console.error('running on stdio');",
   "if (mode === 'ignore') process.on('SIGTERM', () => {}); else process.on('SIGTERM', () => process.exit(0));",
+  "if (mode === 'split') { process.stderr.write('running on '); setTimeout(() => process.stderr.write('stdio\\n'), 5); } else console.error('running on stdio');",
   "setInterval(() => {}, 1000);",
 ].join(" ");
 
