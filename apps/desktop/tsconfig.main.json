@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "./src/main",
+    "outDir": "./dist/types/main",
+    "types": ["node", "electron"]
+  },
+  "references": [
+    { "path": "./tsconfig.shared.json" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/rojo" },
+    { "path": "../../packages/studio-mcp" }
+  ],
+  "include": ["src/main/**/*.ts"],
+  "exclude": ["src/main/**/*.test.ts"]
+}

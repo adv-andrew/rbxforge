@@ -1,0 +1,224 @@
+.steps {
+  display: grid;
+  gap: var(--space-6);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.step {
+  border-bottom: 1px solid var(--color-border);
+  padding-bottom: var(--space-6);
+}
+
+.step h3 {
+  align-items: center;
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  font-size: var(--font-size-body);
+  gap: var(--space-2);
+  margin: 0;
+  padding-bottom: var(--space-2);
+  position: relative;
+}
+
+.step h3::after {
+  background: var(--color-brand-red);
+  bottom: -1px;
+  content: "";
+  height: 2px;
+  left: 0;
+  position: absolute;
+  width: 12px;
+}
+
+.marker {
+  align-items: center;
+  background: var(--color-raised);
+  border: 1px solid var(--color-border);
+  clip-path: polygon(0 0, calc(100% - var(--space-1)) 0, 100% var(--space-1), 100% 100%, 0 100%);
+  color: var(--color-text-primary);
+  display: inline-flex;
+  font-size: var(--font-size-metadata);
+  height: var(--space-6);
+  justify-content: center;
+  width: var(--space-6);
+}
+
+.stepContent {
+  display: grid;
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+
+.facts,
+.details dl,
+.technical dl {
+  display: grid;
+  gap: var(--space-2);
+  margin: 0;
+}
+
+.facts > div,
+.details dl > div,
+.technical dl > div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.facts dt,
+.details dt,
+.technical dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-metadata);
+}
+
+.facts dd,
+.details dd,
+.technical dd {
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+
+.mono {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-metadata);
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.primaryCopy,
+.secondary,
+.limitation,
+.restart,
+.boundCopy,
+.error p {
+  margin: 0;
+}
+
+.secondary {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-metadata);
+}
+
+.restart,
+.limitation {
+  border-left: 2px solid var(--color-warning);
+  color: var(--color-text-primary);
+  padding-left: var(--space-3);
+}
+
+.pluginState {
+  display: grid;
+  gap: var(--space-3);
+}
+
+.portEditor {
+  align-items: end;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.details summary,
+.technical summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-metadata);
+}
+
+.details[open] summary,
+.technical[open] summary {
+  margin-bottom: var(--space-2);
+}
+
+.catalog {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.catalogRow {
+  align-items: start;
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  display: grid;
+  gap: var(--space-2);
+  grid-template-columns: auto minmax(0, 1fr);
+  padding: var(--space-3);
+}
+
+.catalogRow[data-disabled="true"] {
+  cursor: default;
+  opacity: 0.72;
+}
+
+.catalogRow input {
+  margin-top: var(--space-1);
+}
+
+.catalogCopy {
+  display: grid;
+  gap: var(--space-1);
+  min-width: 0;
+}
+
+.catalogCopy span {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-metadata);
+  overflow-wrap: anywhere;
+}
+
+.catalogCopy .blocked {
+  color: var(--color-warning);
+}
+
+.catalogRow .details {
+  grid-column: 2;
+}
+
+.check {
+  align-items: start;
+  display: flex;
+  gap: var(--space-2);
+}
+
+.check input {
+  margin-top: var(--space-1);
+}
+
+.error {
+  border: 1px solid var(--color-danger);
+  border-radius: var(--radius-control);
+  display: grid;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.technical {
+  border-top: 1px solid var(--color-border);
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
+}
+
+.footer {
+  align-items: center;
+  background: var(--color-sidebar);
+  border-top: 1px solid var(--color-border);
+  display: flex;
+  flex: 0 0 auto;
+  gap: var(--space-2);
+  justify-content: flex-end;
+  padding: var(--space-4) var(--space-6);
+  z-index: 2;
+}
+
+.boundCopy {
+  color: var(--color-success);
+  margin-right: auto;
+}

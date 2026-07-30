@@ -1,0 +1,80 @@
+.root {
+  anchor-scope: --rbxforge-menu-trigger;
+  position: relative;
+}
+
+.trigger {
+  anchor-name: --rbxforge-menu-trigger;
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--control-height);
+  justify-content: center;
+  padding: 0;
+  width: var(--control-height);
+}
+
+.trigger:hover,
+.trigger[aria-expanded="true"] {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.trigger svg {
+  fill: currentColor;
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.menu {
+  background: var(--color-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  box-shadow: var(--shadow-overlay);
+  display: grid;
+  min-width: 152px;
+  padding: var(--space-1);
+  inset: unset;
+  margin: var(--space-1) 0 0;
+  position: fixed;
+  position-anchor: --rbxforge-menu-trigger;
+  right: anchor(right);
+  top: anchor(bottom);
+  z-index: 30;
+}
+
+@supports not (top: anchor(bottom)) {
+  .menu {
+    position: absolute;
+    right: 0;
+    top: calc(100% + var(--space-1));
+  }
+}
+
+.item {
+  background: transparent;
+  border: 0;
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  cursor: pointer;
+  min-height: var(--control-height);
+  padding: 0 var(--space-2);
+  text-align: left;
+  white-space: nowrap;
+}
+
+.item:hover,
+.item:focus-visible {
+  background: var(--color-surface);
+}
+
+.item:disabled {
+  color: var(--color-text-secondary);
+  cursor: default;
+  opacity: 0.48;
+}

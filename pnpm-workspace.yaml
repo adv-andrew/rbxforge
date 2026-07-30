@@ -1,0 +1,11 @@
+packages:
+  - "packages/*"
+  - "apps/*"
+
+allowBuilds:
+  "@vscode/vsce-sign": false
+  esbuild: true
+  better-sqlite3: true
+  electron: true
+  keytar: false
+  sharp: true

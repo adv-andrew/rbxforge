@@ -1,0 +1,13 @@
+{
+  "files": [],
+  "references": [
+    { "path": "./packages/core" },
+    { "path": "./packages/agent" },
+    { "path": "./packages/test-fixtures" },
+    { "path": "./packages/studio-mcp" },
+    { "path": "./packages/rojo" },
+    { "path": "./packages/webview-ui" },
+    { "path": "./apps/extension" },
+    { "path": "./apps/desktop" }
+  ]
+}

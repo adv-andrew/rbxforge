@@ -1,0 +1,51 @@
+.shell {
+  display: grid;
+  grid-template:
+    "sidebar header" var(--header-height)
+    "sidebar main" minmax(0, 1fr)
+    / var(--sidebar-width) minmax(0, 1fr);
+  height: 100vh;
+  min-height: 640px;
+  min-width: 960px;
+  overflow: hidden;
+}
+
+.skipLink {
+  background: var(--color-brand-red);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  left: var(--space-3);
+  padding: var(--space-2) var(--space-3);
+  position: fixed;
+  top: var(--space-3);
+  transform: translateY(-200%);
+  z-index: 100;
+}
+
+.skipLink:focus {
+  transform: translateY(0);
+}
+
+.sidebarRegion {
+  grid-area: sidebar;
+  min-width: 0;
+}
+
+.header {
+  align-items: center;
+  background: var(--color-canvas);
+  border-bottom: 1px solid var(--color-border);
+  display: flex;
+  grid-area: header;
+  height: var(--header-height);
+  min-width: 0;
+  padding: 0 var(--space-6);
+}
+
+.main {
+  display: grid;
+  grid-area: main;
+  grid-template-rows: minmax(0, 1fr) auto;
+  min-height: 0;
+  min-width: 0;
+}

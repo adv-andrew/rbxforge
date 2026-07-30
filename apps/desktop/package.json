@@ -1,0 +1,60 @@
+{
+  "name": "@rbxforge/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first macOS desktop app for explicit Roblox project, Rojo, and Studio MCP connections.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adv-andrew/rbxforge.git",
+    "directory": "apps/desktop"
+  },
+  "homepage": "https://github.com/adv-andrew/rbxforge#readme",
+  "bugs": {
+    "url": "https://github.com/adv-andrew/rbxforge/issues"
+  },
+  "type": "module",
+  "main": "dist/main/index.cjs",
+  "scripts": {
+    "test": "vitest run --config vitest.config.ts",
+    "pretest:visual": "pnpm run build",
+    "test:visual": "playwright test --config playwright.config.ts --tsconfig tsconfig.playwright.json",
+    "typecheck": "tsc -b",
+    "build": "node ../../scripts/build-desktop.mjs",
+    "dev": "node ../../scripts/dev-desktop.mjs",
+    "clean": "rm -rf dist build test-results playwright-report tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "better-sqlite3": "13.0.1"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.12.1",
+    "@chrrxs/robloxstudio-mcp": "2.22.5",
+    "@electron/asar": "4.2.1",
+    "@electron/fuses": "1.8.0",
+    "@electron/rebuild": "4.2.0",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@playwright/test": "1.62.0",
+    "@rbxforge/core": "workspace:*",
+    "@rbxforge/rojo": "workspace:*",
+    "@rbxforge/studio-mcp": "workspace:*",
+    "@testing-library/dom": "10.4.1",
+    "@testing-library/react": "16.3.2",
+    "@testing-library/user-event": "14.6.1",
+    "@types/better-sqlite3": "7.6.13",
+    "@types/react": "19.2.14",
+    "@types/react-dom": "19.2.3",
+    "@vitejs/plugin-react": "5.2.0",
+    "electron": "43.2.0",
+    "electron-builder": "26.15.3",
+    "jsdom": "29.1.1",
+    "jsonc-parser": "3.3.1",
+    "lucide-react": "1.27.0",
+    "postcss": "8.5.23",
+    "react": "19.2.8",
+    "react-dom": "19.2.8",
+    "sharp": "0.35.3",
+    "vite": "7.3.6",
+    "zod": "3.25.76"
+  }
+}

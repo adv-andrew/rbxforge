@@ -1,0 +1,207 @@
+{
+  "name": "rbxforge",
+  "version": "0.1.0",
+  "publisher": "rbxforge",
+  "displayName": "RbxForge",
+  "description": "A Roblox-first IDE workbench with Rojo, live Studio context, playtesting, and bounded AI assistance.",
+  "license": "UNLICENSED",
+  "icon": "media/rbxforge.png",
+  "private": true,
+  "type": "module",
+  "main": "./dist/extension.js",
+  "engines": {
+    "vscode": "^1.100.0"
+  },
+  "capabilities": {
+    "untrustedWorkspaces": {
+      "supported": false
+    },
+    "virtualWorkspaces": {
+      "supported": false
+    }
+  },
+  "files": [
+    "dist/extension.js",
+    "media/rbxforge.svg",
+    "media/rbxforge.png",
+    "media/webview/webview.js",
+    "media/webview/webview.css",
+    "vendor/package.json",
+    "vendor/robloxstudio-mcp/index.mjs",
+    "vendor/robloxstudio-mcp/assets/Baseplate.rbxl",
+    "vendor/studio-plugin/MCPPlugin.rbxmx",
+    "README.md",
+    "LICENSE",
+    "THIRD_PARTY_NOTICES"
+  ],
+  "activationEvents": [
+    "onView:rbxforge.connection",
+    "onView:rbxforge.liveStudio",
+    "onView:rbxforge.properties",
+    "onView:rbxforge.agent",
+    "onView:rbxforge.playtest",
+    "onView:rbxforge.activity"
+  ],
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "rbxforge",
+          "title": "Roblox",
+          "icon": "media/rbxforge.svg"
+        }
+      ]
+    },
+    "views": {
+      "rbxforge": [
+        {
+          "id": "rbxforge.connection",
+          "name": "Connection",
+          "type": "webview"
+        },
+        {
+          "id": "rbxforge.liveStudio",
+          "name": "Live Studio Explorer"
+        },
+        {
+          "id": "rbxforge.properties",
+          "name": "Properties",
+          "type": "webview"
+        },
+        {
+          "id": "rbxforge.agent",
+          "name": "Agent",
+          "type": "webview"
+        },
+        {
+          "id": "rbxforge.playtest",
+          "name": "Playtest",
+          "type": "webview"
+        },
+        {
+          "id": "rbxforge.activity",
+          "name": "Activity",
+          "type": "webview"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "rbxforge.openWorkbench",
+        "title": "RbxForge: Open Workbench"
+      },
+      {
+        "command": "rbxforge.selectProject",
+        "title": "RbxForge: Select Project"
+      },
+      {
+        "command": "rbxforge.startRojo",
+        "title": "RbxForge: Start Rojo"
+      },
+      {
+        "command": "rbxforge.stopRojo",
+        "title": "RbxForge: Stop Rojo"
+      },
+      {
+        "command": "rbxforge.installStudioPlugin",
+        "title": "RbxForge: Studio Plugin Instructions"
+      },
+      {
+        "command": "rbxforge.selectStudioInstance",
+        "title": "RbxForge: Select Studio Instance"
+      },
+      {
+        "command": "rbxforge.refreshStudio",
+        "title": "RbxForge: Refresh Studio"
+      },
+      {
+        "command": "rbxforge.copyDataModelPath",
+        "title": "RbxForge: Copy DataModel Path"
+      },
+      {
+        "command": "rbxforge.revealSource",
+        "title": "RbxForge: Reveal Source"
+      },
+      {
+        "command": "rbxforge.openProperties",
+        "title": "RbxForge: Open Properties"
+      },
+      {
+        "command": "rbxforge.addAgentContext",
+        "title": "RbxForge: Add Agent Context"
+      },
+      {
+        "command": "rbxforge.captureScreenshot",
+        "title": "RbxForge: Capture Screenshot"
+      },
+      {
+        "command": "rbxforge.configureAiProvider",
+        "title": "RbxForge: Configure AI Provider"
+      }
+    ],
+    "menus": {
+      "view/item/context": [
+        {
+          "command": "rbxforge.copyDataModelPath",
+          "when": "view == rbxforge.liveStudio",
+          "group": "rbxforge@1"
+        },
+        {
+          "command": "rbxforge.revealSource",
+          "when": "view == rbxforge.liveStudio",
+          "group": "rbxforge@2"
+        },
+        {
+          "command": "rbxforge.openProperties",
+          "when": "view == rbxforge.liveStudio",
+          "group": "rbxforge@3"
+        },
+        {
+          "command": "rbxforge.addAgentContext",
+          "when": "view == rbxforge.liveStudio",
+          "group": "rbxforge@4"
+        },
+        {
+          "command": "rbxforge.captureScreenshot",
+          "when": "view == rbxforge.liveStudio",
+          "group": "rbxforge@5"
+        }
+      ]
+    },
+    "configuration": {
+      "title": "RbxForge",
+      "properties": {
+        "rbxforge.ai.endpoint": {
+          "type": "string",
+          "default": "https://api.openai.com/v1",
+          "scope": "window",
+          "description": "Responses-compatible endpoint. Workspace overrides are rejected by the extension."
+        },
+        "rbxforge.ai.model": {
+          "type": "string",
+          "default": "gpt-5.6",
+          "scope": "resource",
+          "description": "Responses model used by the RbxForge Agent."
+        }
+      }
+    }
+  },
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@chrrxs/robloxstudio-mcp": "2.22.5",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@rbxforge/agent": "workspace:*",
+    "@rbxforge/core": "workspace:*",
+    "@rbxforge/rojo": "workspace:*",
+    "@rbxforge/studio-mcp": "workspace:*",
+    "@rbxforge/webview-ui": "workspace:*"
+  },
+  "devDependencies": {
+    "@types/vscode": "1.100.0"
+  }
+}

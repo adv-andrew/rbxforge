@@ -1,0 +1,38 @@
+appId: dev.rbxforge.desktop
+productName: RbxForge
+copyright: Copyright © 2026 Andy Vu
+asar:
+  smartUnpack: false
+electronVersion: 43.2.0
+npmRebuild: false
+buildDependenciesFromSource: false
+directories:
+  output: ../../../artifacts/desktop
+files:
+  - dist/main/**
+  - dist/preload/**
+  - dist/renderer/**
+  - node_modules/better-sqlite3/**
+  - package.json
+  - LICENSE
+  - THIRD_PARTY_NOTICES
+asarUnpack:
+  - node_modules/better-sqlite3/prebuilds/darwin-arm64.node
+extraResources:
+  - from: dist/vendor
+    to: vendor
+mac:
+  identity: null
+  hardenedRuntime: false
+  category: public.app-category.developer-tools
+  icon: build/rbxforge.icns
+  target:
+    - target: dir
+      arch:
+        - arm64
+    - target: dmg
+      arch:
+        - arm64
+dmg:
+  artifactName: RbxForge-${version}-arm64.${ext}
+  writeUpdateInfo: false

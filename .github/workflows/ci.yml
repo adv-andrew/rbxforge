@@ -1,0 +1,99 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  portable:
+    name: Portable Node 24 gates
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Check formatting
+        run: pnpm format:check
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build standalone desktop bundles
+        run: pnpm build:desktop
+
+      - name: Build legacy extension regression target
+        run: pnpm build
+
+  package-macos-arm64:
+    name: Package macOS arm64 desktop
+    needs: portable
+    runs-on: macos-15
+    timeout-minutes: 45
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Verify Darwin arm64 packaging host and Apple tools
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(uname -s)" = "Darwin"
+          test "$(uname -m)" = "arm64"
+          for tool in /usr/bin/iconutil /usr/bin/codesign /usr/bin/hdiutil; do
+            test -x "$tool"
+          done
+
+      - name: Install pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 11.9.0
+
+      - name: Install Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Install locked dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Package, inspect, and smoke standalone desktop
+        run: |
+          pnpm package:desktop
+          pnpm inspect:desktop
+          pnpm smoke:desktop
+
+      - name: Upload verified DMG
+        uses: actions/upload-artifact@v4
+        with:
+          name: rbxforge-macos-arm64
+          path: artifacts/desktop/RbxForge-0.1.0-arm64.dmg
+          if-no-files-found: error

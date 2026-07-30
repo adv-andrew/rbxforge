@@ -1,0 +1,221 @@
+.iconButton {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: inline-flex;
+  height: var(--control-height);
+  justify-content: center;
+  padding: 0;
+  transition:
+    opacity var(--duration-fast),
+    transform var(--duration-fast);
+  width: var(--control-height);
+}
+
+.iconButton:hover:not(:disabled) {
+  background: var(--color-surface);
+  border-color: var(--color-border);
+  color: var(--color-text-primary);
+}
+
+.iconButton:active:not(:disabled) {
+  transform: translateY(1px);
+}
+
+.iconButton:disabled {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.icon,
+.icon svg {
+  display: block;
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.field {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.fieldLabel {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-metadata);
+  font-weight: 600;
+  line-height: var(--line-height-metadata);
+}
+
+.input {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+}
+
+.input::placeholder {
+  color: var(--color-text-secondary);
+}
+
+.input[aria-invalid="true"] {
+  border-color: var(--color-danger);
+}
+
+.fieldHelp,
+.fieldError {
+  font-size: var(--font-size-metadata);
+  line-height: var(--line-height-metadata);
+}
+
+.fieldHelp {
+  color: var(--color-text-secondary);
+}
+
+.fieldError {
+  color: var(--color-danger);
+}
+
+.statusChip {
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-pill);
+  color: var(--color-text-secondary);
+  display: inline-flex;
+  font-size: var(--font-size-metadata);
+  font-weight: 600;
+  gap: var(--space-1);
+  line-height: var(--line-height-metadata);
+  min-height: var(--space-6);
+  padding: 0 var(--space-2);
+}
+
+.statusIcon {
+  height: var(--space-4);
+  width: var(--space-4);
+}
+
+.status-ready,
+.status-studio-bound {
+  color: var(--color-success);
+}
+
+.status-warning {
+  color: var(--color-warning);
+}
+
+.status-error {
+  color: var(--color-danger);
+}
+
+.status-working {
+  color: var(--color-focus);
+}
+
+.status-studio-bound {
+  border-color: var(--color-brand-warm-white);
+  outline: 1px solid var(--color-success);
+  outline-offset: 1px;
+}
+
+.emptyState {
+  align-items: flex-start;
+  color: var(--color-text-secondary);
+  display: flex;
+  flex-direction: column;
+  max-width: 440px;
+  padding: var(--space-8);
+}
+
+.emptyState h2 {
+  color: var(--color-text-primary);
+  font-size: 18px;
+  line-height: 1.3;
+  margin: 0;
+}
+
+.emptyState p {
+  margin: var(--space-2) 0 0;
+}
+
+.emptyAction {
+  margin-top: var(--space-4);
+}
+
+.skeleton {
+  background: var(--color-raised);
+  border-radius: var(--radius-control);
+  display: block;
+  opacity: 0.55;
+}
+
+.skeleton-project-row {
+  height: var(--project-row-height);
+  width: 100%;
+}
+
+.skeleton-thread-row {
+  height: var(--thread-row-height);
+  width: 78%;
+}
+
+.skeleton-message-line {
+  height: var(--space-3);
+  width: 68%;
+}
+
+.skeleton-connection-step {
+  height: 72px;
+  width: 100%;
+}
+
+.toastRegion {
+  bottom: var(--space-4);
+  display: grid;
+  gap: var(--space-2);
+  max-width: 360px;
+  pointer-events: none;
+  position: fixed;
+  right: var(--space-4);
+  z-index: 40;
+}
+
+.toastRegion [role="status"],
+.toastRegion [role="alert"] {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.toast {
+  align-items: center;
+  background: var(--color-raised);
+  border: 1px solid var(--color-success);
+  border-radius: var(--radius-control);
+  color: var(--color-text-primary);
+  display: flex;
+  gap: var(--space-2);
+  justify-content: space-between;
+  padding: var(--space-2) var(--space-3);
+  pointer-events: auto;
+}
+
+.toastError {
+  border-color: var(--color-danger);
+}
+
+.toastDismiss {
+  background: transparent;
+  border: 0;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font: inherit;
+  padding: var(--space-1);
+}
+
+.toastDismiss:hover {
+  color: var(--color-text-primary);
+}

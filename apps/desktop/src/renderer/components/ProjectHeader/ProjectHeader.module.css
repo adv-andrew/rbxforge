@@ -1,0 +1,85 @@
+.root {
+  align-items: center;
+  display: flex;
+  gap: var(--space-3);
+  min-width: 0;
+  width: 100%;
+}
+
+.identity {
+  display: grid;
+  min-width: 0;
+}
+
+.titleRow {
+  align-items: center;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+}
+
+.stateIcon {
+  color: var(--color-text-secondary);
+  flex: 0 0 auto;
+}
+
+.projectName {
+  font-size: var(--font-size-project-title);
+  font-weight: 650;
+  line-height: var(--line-height-project-title);
+  max-width: 220px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.summary {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-metadata);
+  line-height: var(--line-height-metadata);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.technical {
+  flex: 0 0 auto;
+  position: relative;
+}
+
+.technical summary {
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  font-size: var(--font-size-metadata);
+}
+
+.technical dl {
+  background: var(--color-raised);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-panel);
+  display: grid;
+  gap: var(--space-2);
+  margin: var(--space-2) 0 0;
+  min-width: 260px;
+  padding: var(--space-3);
+  position: absolute;
+  right: 0;
+  z-index: 10;
+}
+
+.technical dl div {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.technical dt {
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-metadata);
+}
+
+.technical dd {
+  font-family: var(--font-mono);
+  font-size: var(--font-size-metadata);
+  margin: 0;
+  overflow-wrap: anywhere;
+}

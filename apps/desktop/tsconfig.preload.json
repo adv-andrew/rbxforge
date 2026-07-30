@@ -1,0 +1,14 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "emitDeclarationOnly": true,
+    "rootDir": "./src/preload",
+    "outDir": "./dist/types/preload",
+    "types": ["node", "electron"]
+  },
+  "references": [{ "path": "./tsconfig.shared.json" }],
+  "include": ["src/preload/**/*.ts"],
+  "exclude": ["src/preload/**/*.test.ts"]
+}

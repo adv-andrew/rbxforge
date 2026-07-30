@@ -1,0 +1,52 @@
+{
+  "name": "rbxforge",
+  "version": "0.1.0",
+  "private": true,
+  "description": "A local-first macOS desktop app for explicit Roblox project, Rojo, and Studio MCP connections.",
+  "license": "UNLICENSED",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/adv-andrew/rbxforge.git"
+  },
+  "homepage": "https://github.com/adv-andrew/rbxforge#readme",
+  "bugs": {
+    "url": "https://github.com/adv-andrew/rbxforge/issues"
+  },
+  "packageManager": "pnpm@11.9.0",
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "scripts": {
+    "format:check": "prettier --check .",
+    "format": "prettier --write .",
+    "lint": "eslint .",
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "build": "tsc -b && node scripts/build-extension.mjs && pnpm --filter @rbxforge/webview-ui build && node scripts/generate-icon.mjs",
+    "clean": "pnpm -r run clean && node scripts/clean-generated.mjs",
+    "package": "node scripts/package-extension.mjs",
+    "inspect:vsix": "node scripts/inspect-vsix.mjs artifacts/rbxforge-0.1.0.vsix",
+    "scan:secrets": "node scripts/scan-secrets.mjs artifacts/rbxforge-0.1.0.vsix",
+    "smoke:package": "node scripts/smoke-packaged-extension.mjs .rbxforge-package/extension",
+    "build:desktop": "pnpm --filter @rbxforge/desktop build",
+    "dev:desktop": "pnpm --filter @rbxforge/desktop dev",
+    "test:desktop": "pnpm --filter @rbxforge/desktop test",
+    "package:desktop": "node scripts/package-desktop.mjs",
+    "inspect:desktop": "node scripts/inspect-desktop-package.mjs",
+    "smoke:desktop": "node scripts/smoke-packaged-desktop.mjs",
+    "visual:desktop": "pnpm --filter @rbxforge/desktop test:visual"
+  },
+  "devDependencies": {
+    "@eslint/js": "10.0.1",
+    "@types/node": "22.15.17",
+    "@vscode/vsce": "3.9.2",
+    "esbuild": "0.28.1",
+    "eslint": "10.8.0",
+    "eslint-plugin-react-hooks": "7.1.1",
+    "globals": "17.8.0",
+    "prettier": "3.9.6",
+    "typescript": "5.8.3",
+    "typescript-eslint": "8.65.0",
+    "vitest": "3.2.7"
+  }
+}

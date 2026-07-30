@@ -1,0 +1,96 @@
+.button {
+  align-items: center;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+  display: inline-flex;
+  font-weight: 600;
+  gap: var(--space-2);
+  height: var(--control-height);
+  justify-content: center;
+  min-width: var(--control-height);
+  padding: 0 var(--space-3);
+  position: relative;
+  transition:
+    opacity var(--duration-fast),
+    transform var(--duration-fast);
+}
+
+.button:active:not(:disabled):not([aria-disabled="true"]) {
+  transform: translateY(1px);
+}
+
+.button:disabled,
+.button[aria-disabled="true"] {
+  cursor: default;
+  opacity: 0.48;
+}
+
+.primary {
+  background: var(--color-brand-red);
+  border-color: var(--color-brand-red);
+  color: var(--color-text-primary);
+}
+
+.primary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-brand-red);
+  border-color: var(--color-brand-red-hover);
+}
+
+.primary:disabled,
+.primary[aria-disabled="true"] {
+  background: var(--color-raised);
+  border-color: var(--color-border);
+  color: var(--color-text-secondary);
+  opacity: 1;
+}
+
+.secondary {
+  background: var(--color-raised);
+  color: var(--color-text-primary);
+}
+
+.secondary:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-surface);
+}
+
+.quiet,
+.danger {
+  background: transparent;
+}
+
+.quiet {
+  color: var(--color-text-secondary);
+}
+
+.quiet:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.danger {
+  border-color: var(--color-danger);
+  color: var(--color-danger);
+}
+
+.danger:hover:not(:disabled):not([aria-disabled="true"]) {
+  background: var(--color-surface);
+}
+
+.label {
+  white-space: nowrap;
+}
+
+.loading .label {
+  opacity: 0;
+}
+
+.loading::after {
+  border: 2px solid var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  border-top-color: var(--color-text-primary);
+  content: "";
+  height: var(--space-4);
+  position: absolute;
+  width: var(--space-4);
+}

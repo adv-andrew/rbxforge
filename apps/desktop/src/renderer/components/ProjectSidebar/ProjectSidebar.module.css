@@ -1,0 +1,225 @@
+.sidebar {
+  background: var(--color-sidebar);
+  border-right: 1px solid var(--color-border);
+  display: grid;
+  grid-template-rows: 60px minmax(0, 1fr);
+  min-height: 100vh;
+  position: relative;
+}
+
+.brandStrip {
+  align-items: center;
+  display: flex;
+  min-width: 0;
+  padding: var(--space-3) var(--space-3) 0 84px;
+}
+
+.wordmark {
+  display: block;
+  height: 24px;
+  max-width: 164px;
+  width: 164px;
+}
+
+.mark {
+  display: block;
+  height: var(--space-8);
+  width: var(--space-8);
+}
+
+.sidebarBody {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+  min-height: 0;
+  padding: var(--space-2);
+}
+
+.loadingBody {
+  min-height: 0;
+  padding: var(--space-2);
+}
+
+.loadingList {
+  display: grid;
+  gap: var(--space-2);
+}
+
+.sidebarActions {
+  padding-bottom: var(--space-2);
+}
+
+.addProject {
+  justify-content: flex-start;
+  width: 100%;
+}
+
+.navigation {
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.projectList,
+.threadList {
+  display: grid;
+  gap: var(--space-1);
+}
+
+.projectGroup {
+  border-left: 4px solid transparent;
+  min-width: 0;
+  padding-left: var(--space-1);
+  position: relative;
+}
+
+.selectedGroup {
+  border-left-color: var(--color-brand-red);
+}
+
+.selectedGroup > .row:first-child {
+  background: var(--color-raised);
+  clip-path: polygon(0 0, calc(100% - 4px) 0, 100% 4px, 100% 100%, 0 100%);
+}
+
+.row {
+  align-items: center;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) var(--control-height);
+  min-width: 0;
+}
+
+.projectButton,
+.threadButton,
+.newThread {
+  align-items: center;
+  background: transparent;
+  border: 1px solid transparent;
+  border-radius: var(--radius-control);
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  display: flex;
+  gap: var(--space-2);
+  min-width: 0;
+  padding: 0 var(--space-2);
+  text-align: left;
+}
+
+.projectButton {
+  color: var(--color-text-primary);
+  font-size: var(--font-size-project-title);
+  font-weight: 600;
+  height: var(--project-row-height);
+  line-height: var(--line-height-project-title);
+}
+
+.threadButton,
+.newThread {
+  height: var(--thread-row-height);
+}
+
+.projectButton:hover,
+.threadButton:hover,
+.newThread:hover {
+  background: var(--color-surface);
+  color: var(--color-text-primary);
+}
+
+.projectGlyph {
+  align-items: center;
+  background: var(--color-brand-graphite);
+  border: 1px solid var(--color-brand-charcoal);
+  border-radius: var(--radius-control);
+  color: var(--color-brand-warm-white);
+  display: inline-flex;
+  flex: 0 0 var(--space-6);
+  font-size: var(--font-size-metadata);
+  height: var(--space-6);
+  justify-content: center;
+}
+
+.rowLabel {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.connectionDot {
+  background: var(--color-text-secondary);
+  border-radius: var(--radius-pill);
+  height: var(--space-1);
+  margin-left: auto;
+  opacity: 0.56;
+  width: var(--space-1);
+}
+
+.threadList {
+  padding: 0 0 var(--space-2) var(--space-4);
+}
+
+.threadLine {
+  background: var(--color-border);
+  height: 1px;
+  width: var(--space-2);
+}
+
+.newThread {
+  margin-left: var(--space-1);
+}
+
+.aboutButton {
+  justify-self: start;
+}
+
+.resizeHandle {
+  bottom: 0;
+  cursor: col-resize;
+  position: absolute;
+  right: -3px;
+  top: 0;
+  width: 6px;
+  z-index: 20;
+}
+
+.resizeHandle::after {
+  background: var(--color-focus);
+  bottom: 0;
+  content: "";
+  opacity: 0;
+  position: absolute;
+  right: 2px;
+  top: 0;
+  transition: opacity var(--duration-fast);
+  width: 2px;
+}
+
+.resizeHandle:hover::after,
+.resizeHandle:focus-visible::after {
+  opacity: 1;
+}
+
+.dialogForm,
+.aboutContent {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.dialogActions {
+  display: flex;
+  gap: var(--space-2);
+  justify-content: flex-end;
+}
+
+.confirmCopy,
+.aboutContent p {
+  color: var(--color-text-secondary);
+  margin: 0;
+}
+
+.confirmCopy strong {
+  color: var(--color-text-primary);
+}
+
+.aboutContent .version {
+  color: var(--color-text-primary);
+  font-family: var(--font-mono);
+}

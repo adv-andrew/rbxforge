@@ -1,0 +1,16 @@
+{
+  "name": "@rbxforge/agent",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@rbxforge/core": "workspace:*",
+    "openai": "6.49.0"
+  }
+}

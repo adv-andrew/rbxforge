@@ -1,0 +1,21 @@
+{
+  "name": "@rbxforge/studio-mcp",
+  "private": true,
+  "type": "module",
+  "exports": "./src/index.ts",
+  "scripts": {
+    "test": "vitest run",
+    "typecheck": "tsc -b",
+    "build": "tsc -b",
+    "clean": "rm -rf dist tsconfig.tsbuildinfo"
+  },
+  "dependencies": {
+    "@chrrxs/robloxstudio-mcp": "2.22.5",
+    "@modelcontextprotocol/sdk": "1.29.0",
+    "@rbxforge/core": "workspace:*",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@rbxforge/test-fixtures": "workspace:*"
+  }
+}

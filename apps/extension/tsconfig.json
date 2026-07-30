@@ -1,0 +1,19 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "compilerOptions": {
+    "composite": true,
+    "declaration": true,
+    "rootDir": "./src",
+    "outDir": "./dist",
+    "types": ["node", "vscode"]
+  },
+  "references": [
+    { "path": "../../packages/agent" },
+    { "path": "../../packages/core" },
+    { "path": "../../packages/rojo" },
+    { "path": "../../packages/studio-mcp" },
+    { "path": "../../packages/webview-ui" }
+  ],
+  "include": ["src/**/*.ts"],
+  "exclude": ["src/**/*.test.ts", "src/test/**"]
+}
