@@ -40,6 +40,21 @@ Selected Studio window
   └─ separate Rojo Studio plugin → manually connected to that project's shown Rojo port
 ```
 
+The bound, read-only Studio Inspector follows one production route:
+
+```text
+Renderer -> preload -> validated IPC -> AppController
+-> StudioInspectorService -> BindingCoordinator.withBinding()
+-> StudioMcpService -> exact instance_id
+```
+
+The renderer can request only lazy child rows or bounded Properties for a canonical DataModel path. The host
+re-derives the active project binding, verifies the requested instance and binding revision inside
+`withBinding()`, routes the call with that exact `instance_id`, and checks the echoed result identity and path
+before returning a display-only response. Properties are bounded and sanitized in the host. The route does
+not expose a generic MCP tool call, Studio writes, script source, Studio selection sync, or full-tree
+prefetch/search.
+
 The primary MCP port is preflighted and accepted only after the owned child reports primary mode on the
 requested loopback address. A collision on the primary port is fatal; RbxForge neither adopts the occupant
 nor relies on upstream proxy mode. Pinned upstream MCP also attempts legacy loopback port `3002`. That

@@ -58,6 +58,48 @@ export interface ProjectBinding {
   readonly rojoHandoffConfirmedAt: number;
 }
 
+export interface StudioInspectorRequestIdentity {
+  readonly projectId: string;
+  readonly instanceId: string;
+  readonly bindingRevision: number;
+}
+
+export interface StudioInspectorIdentity extends StudioInspectorRequestIdentity {
+  readonly brokerEpoch: string;
+  readonly observedAt: number;
+}
+
+export interface StudioInspectorNode {
+  readonly name: string;
+  readonly className: string;
+  readonly path: string;
+  readonly hasChildren: boolean;
+  readonly enabled?: boolean;
+}
+
+export type StudioInspectorPropertyCategory =
+  "Appearance" | "Behavior" | "Transform" | "Layout" | "Content" | "Data" | "Other";
+
+export type StudioInspectorPropertyValueKind = "boolean" | "number" | "string" | "structured" | "nil" | "unsupported";
+
+export interface StudioInspectorProperty {
+  readonly name: string;
+  readonly category: StudioInspectorPropertyCategory;
+  readonly value: string;
+  readonly valueKind: StudioInspectorPropertyValueKind;
+}
+
+export interface StudioInspectorChildren extends StudioInspectorIdentity {
+  readonly instancePath: string;
+  readonly children: readonly StudioInspectorNode[];
+}
+
+export interface StudioInspectorProperties extends StudioInspectorIdentity {
+  readonly instancePath: string;
+  readonly className: string;
+  readonly properties: readonly StudioInspectorProperty[];
+}
+
 export interface ProjectRecord {
   readonly id: string;
   readonly displayName: string;

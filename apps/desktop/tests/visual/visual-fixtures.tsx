@@ -22,7 +22,11 @@ export const VISUAL_STATES = [
   "mismatch-error",
 ] as const;
 
+export const INSPECTOR_VISUAL_STATES = ["studio-inspector", "studio-inspector-error"] as const;
+
 export type VisualState = (typeof VISUAL_STATES)[number];
+export type InspectorVisualState = (typeof INSPECTOR_VISUAL_STATES)[number];
+export type VisualFixtureState = VisualState | InspectorVisualState;
 
 export interface VisualFixtureController {
   initialize(): Promise<DesktopSnapshot>;
@@ -44,6 +48,46 @@ const PROJECT_ID = "fixture-project";
 const THREAD_ID = "fixture-thread";
 const SAME_PLACE_LIMITATION =
   "RbxForge cannot detect or distinguish two Studio edit windows for the same published place. Keep only one such window open before binding.";
+const INSPECTOR_BROKER_EPOCH = "fixture-broker-epoch-7";
+const INSPECTOR_ROOT_CHILDREN = Object.freeze([
+  { name: "Workspace", className: "Workspace", path: "game.Workspace", hasChildren: true },
+  { name: "Players", className: "Players", path: "game.Players", hasChildren: true },
+  {
+    name: "ReplicatedStorage",
+    className: "ReplicatedStorage",
+    path: "game.ReplicatedStorage",
+    hasChildren: true,
+  },
+  {
+    name: "ServerScriptService",
+    className: "ServerScriptService",
+    path: "game.ServerScriptService",
+    hasChildren: true,
+  },
+  { name: "Lighting", className: "Lighting", path: "game.Lighting", hasChildren: true },
+]);
+const INSPECTOR_WORKSPACE_CHILDREN = Object.freeze([
+  { name: "Map", className: "Model", path: "game.Workspace.Map", hasChildren: true },
+  {
+    name: "SpawnLocation",
+    className: "SpawnLocation",
+    path: "game.Workspace.SpawnLocation",
+    hasChildren: false,
+  },
+  { name: "MainPart", className: "Part", path: "game.Workspace.MainPart", hasChildren: false },
+]);
+const INSPECTOR_MAIN_PART_PROPERTIES = Object.freeze([
+  { name: "BrickColor", category: "Appearance", value: "Really red", valueKind: "string" },
+  { name: "Material", category: "Appearance", value: "SmoothPlastic", valueKind: "string" },
+  { name: "Transparency", category: "Appearance", value: "0", valueKind: "number" },
+  { name: "Anchored", category: "Behavior", value: "true", valueKind: "boolean" },
+  { name: "CanCollide", category: "Behavior", value: "true", valueKind: "boolean" },
+  { name: "Orientation", category: "Transform", value: "0, 0, 0", valueKind: "structured" },
+  { name: "Position", category: "Transform", value: "0, 4, 0", valueKind: "structured" },
+  { name: "Size", category: "Transform", value: "24, 1, 24", valueKind: "structured" },
+  { name: "Archivable", category: "Data", value: "true", valueKind: "boolean" },
+  { name: "Name", category: "Data", value: "MainPart", valueKind: "string" },
+] as const);
 
 const PROJECT: ProjectRecord = Object.freeze({
   id: PROJECT_ID,
@@ -102,24 +146,25 @@ const OTHER_STUDIO: StudioCatalogRow = Object.freeze({
   warningRequired: false,
 });
 
-export function parseVisualStateArgument(argv: readonly string[]): VisualState {
+export function parseVisualStateArgument(argv: readonly string[]): VisualFixtureState {
   const prefix = "--rbxforge-visual-state=";
   const argumentsForFixture = argv.filter((argument) => argument.startsWith("--rbxforge-visual-state"));
   const candidate = argumentsForFixture.length === 1 ? argumentsForFixture[0] : undefined;
   const value = candidate?.startsWith(prefix) ? candidate.slice(prefix.length) : undefined;
-  if (value === undefined || !VISUAL_STATES.includes(value as VisualState)) {
+  const supportedStates: readonly string[] = [...VISUAL_STATES, ...INSPECTOR_VISUAL_STATES];
+  if (value === undefined || !supportedStates.includes(value)) {
     throw new Error("The Electron fixture requires exactly one supported RbxForge visual state argument.");
   }
-  return value as VisualState;
+  return value as VisualFixtureState;
 }
 
-export function createVisualFixtureSnapshot(state: VisualState): DesktopSnapshot {
+export function createVisualFixtureSnapshot(state: VisualFixtureState): DesktopSnapshot {
   const snapshot = state === "onboarding" ? onboardingSnapshot() : projectSnapshot(state, runtimeForState(state));
   return desktopSnapshotSchema.parse(snapshot) as unknown as DesktopSnapshot;
 }
 
 export function createVisualFixtureController(
-  state: VisualState,
+  state: VisualFixtureState,
   options: VisualFixtureControllerOptions = {},
 ): VisualFixtureController {
   let snapshot = createVisualFixtureSnapshot(state);
@@ -163,6 +208,8 @@ export function createVisualFixtureController(
           drafts: [...snapshot.drafts.filter((draft) => draft.threadId !== command.threadId), draft],
         };
       }
+      const inspectorResponse = responseForInspectorCommand(state, command, snapshot);
+      if (inspectorResponse !== undefined) return inspectorResponse;
       const result =
         command.type === "plugin.inspect"
           ? {
@@ -214,7 +261,7 @@ function onboardingSnapshot(): DesktopSnapshot {
   };
 }
 
-function projectSnapshot(state: Exclude<VisualState, "onboarding">, runtime: RuntimeSnapshot): DesktopSnapshot {
+function projectSnapshot(state: Exclude<VisualFixtureState, "onboarding">, runtime: RuntimeSnapshot): DesktopSnapshot {
   return {
     revision: 7,
     projects: [PROJECT],
@@ -245,12 +292,12 @@ function projectSnapshot(state: Exclude<VisualState, "onboarding">, runtime: Run
     settings: {
       preferredMcpPort: 58_741,
       sidebarWidth: 272,
-      mcpPortChangeAllowed: state !== "studio-bound",
+      mcpPortChangeAllowed: !isStudioBoundFixture(state),
     },
   };
 }
 
-function runtimeForState(state: Exclude<VisualState, "onboarding">): RuntimeSnapshot {
+function runtimeForState(state: Exclude<VisualFixtureState, "onboarding">): RuntimeSnapshot {
   const base = {
     detail: "Reconnect this project to verify Rojo and Studio.",
     activeProject: {
@@ -279,7 +326,7 @@ function runtimeForState(state: Exclude<VisualState, "onboarding">): RuntimeSnap
       primaryPort: 58_741,
       legacyPort: 3_002 as const,
       legacyStatus: "listening" as const,
-      brokerEpoch: "fixture-broker-epoch-7",
+      brokerEpoch: INSPECTOR_BROKER_EPOCH,
     },
     catalogRevision: 11,
   };
@@ -291,7 +338,7 @@ function runtimeForState(state: Exclude<VisualState, "onboarding">): RuntimeSnap
       catalog: [ELIGIBLE_STUDIO, OTHER_STUDIO],
     };
   }
-  if (state === "studio-bound") {
+  if (isStudioBoundFixture(state)) {
     return {
       ...connected,
       state: "studio-bound",
@@ -324,4 +371,94 @@ function runtimeForState(state: Exclude<VisualState, "onboarding">): RuntimeSnap
       recovery: { action: "choose-place", label: "Choose Studio place" },
     },
   };
+}
+
+function isStudioBoundFixture(state: Exclude<VisualFixtureState, "onboarding">): boolean {
+  return state === "studio-bound" || state === "studio-inspector" || state === "studio-inspector-error";
+}
+
+function responseForInspectorCommand(
+  state: VisualFixtureState,
+  command: DesktopCommand,
+  snapshot: DesktopSnapshot,
+): DesktopResponse | undefined {
+  if (command.type !== "studioInspector.children" && command.type !== "studioInspector.properties") {
+    return undefined;
+  }
+  const fail = (code: string, message: string): DesktopResponse =>
+    desktopResponseSchema.parse({
+      version: 1,
+      requestId: command.requestId,
+      ok: false,
+      snapshot,
+      error: {
+        layer: "studio",
+        code,
+        message,
+        recovery: { action: "retry", label: "Retry Studio inspection" },
+      },
+    }) as DesktopResponse;
+
+  if (state === "studio-inspector-error") {
+    return fail("studio-inspector-fixture-unavailable", "Studio inspection is temporarily unavailable.");
+  }
+  if (state !== "studio-inspector") {
+    return fail("studio-inspector-fixture-disabled", "Studio inspection is unavailable in this visual state.");
+  }
+  if (
+    command.projectId !== PROJECT_ID ||
+    command.instanceId !== ELIGIBLE_STUDIO.instanceId ||
+    command.bindingRevision !== 19
+  ) {
+    return fail("studio-inspector-fixture-identity", "The Studio inspection identity changed.");
+  }
+
+  if (command.type === "studioInspector.children") {
+    const children =
+      command.instancePath === "game"
+        ? INSPECTOR_ROOT_CHILDREN
+        : command.instancePath === "game.Workspace"
+          ? INSPECTOR_WORKSPACE_CHILDREN
+          : undefined;
+    if (children === undefined) {
+      return fail("studio-inspector-fixture-path", "The Studio fixture does not recognize this object path.");
+    }
+    return desktopResponseSchema.parse({
+      version: 1,
+      requestId: command.requestId,
+      ok: true,
+      snapshot,
+      result: {
+        kind: "studio-inspector-children",
+        projectId: command.projectId,
+        instanceId: command.instanceId,
+        bindingRevision: command.bindingRevision,
+        brokerEpoch: INSPECTOR_BROKER_EPOCH,
+        instancePath: command.instancePath,
+        observedAt: FIXED_TIME,
+        children,
+      },
+    }) as DesktopResponse;
+  }
+
+  if (command.instancePath !== "game.Workspace.MainPart") {
+    return fail("studio-inspector-fixture-path", "The Studio fixture does not recognize this object path.");
+  }
+  return desktopResponseSchema.parse({
+    version: 1,
+    requestId: command.requestId,
+    ok: true,
+    snapshot,
+    result: {
+      kind: "studio-inspector-properties",
+      projectId: command.projectId,
+      instanceId: command.instanceId,
+      bindingRevision: command.bindingRevision,
+      brokerEpoch: INSPECTOR_BROKER_EPOCH,
+      instancePath: command.instancePath,
+      observedAt: FIXED_TIME,
+      className: "Part",
+      properties: INSPECTOR_MAIN_PART_PROPERTIES,
+    },
+  }) as DesktopResponse;
 }

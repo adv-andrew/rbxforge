@@ -1,4 +1,4 @@
-import { Cable, CircleAlert, Server, Unplug } from "lucide-react";
+import { Cable, CircleAlert, PanelRight, Server, Unplug } from "lucide-react";
 
 import type { ProjectRecord, ProjectRuntimeState, RuntimeSnapshot } from "../../../shared/domain.js";
 import { Button } from "../shared/Button.js";
@@ -8,6 +8,7 @@ import styles from "./ProjectHeader.module.css";
 export interface ProjectHeaderProps {
   readonly connecting?: boolean;
   readonly onOpenConnection?: () => void;
+  readonly onOpenInspector?: (opener: HTMLButtonElement) => void;
   readonly project: ProjectRecord;
   readonly runtime: RuntimeSnapshot;
 }
@@ -96,6 +97,7 @@ const HEADER_STATES: Readonly<Record<ProjectRuntimeState, HeaderState>> = {
 export function ProjectHeader({
   connecting = false,
   onOpenConnection = () => undefined,
+  onOpenInspector = () => undefined,
   project,
   runtime,
 }: ProjectHeaderProps) {
@@ -104,6 +106,11 @@ export function ProjectHeader({
   const actionDisabled = connecting || configured.actionDisabled;
   const summary = connectionSummary(project, runtime);
   const StateIcon = configured.icon;
+  const inspectorAvailable =
+    runtime.state === "studio-bound" &&
+    runtime.studio !== undefined &&
+    runtime.broker?.brokerEpoch !== undefined &&
+    runtime.bindingRevision !== undefined;
 
   return (
     <div className={styles.root}>
@@ -118,6 +125,17 @@ export function ProjectHeader({
         </span>
       </div>
       <TechnicalIdentity runtime={runtime} />
+      {inspectorAvailable ? (
+        <Button
+          aria-label="Inspect Studio"
+          onClick={(event) => onOpenInspector(event.currentTarget)}
+          title="Inspect Studio"
+          variant="secondary"
+        >
+          <PanelRight aria-hidden="true" size={16} strokeWidth={1.8} />
+          <span className={styles.inspectorLabel}>Inspect Studio</span>
+        </Button>
+      ) : null}
       <Button
         aria-disabled={actionDisabled || undefined}
         data-main-connection-action="true"

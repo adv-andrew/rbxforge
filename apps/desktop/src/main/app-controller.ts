@@ -6,6 +6,9 @@ import type {
   ProjectRecord,
   ProjectRef,
   RuntimeSnapshot,
+  StudioInspectorChildren,
+  StudioInspectorProperties,
+  StudioInspectorRequestIdentity,
   ThreadRecord,
 } from "../shared/domain.js";
 import { desktopSnapshotSchema } from "../shared/protocol.js";
@@ -118,6 +121,13 @@ interface BindingCoordinatorPort {
   dispose(): Promise<void>;
 }
 
+interface StudioInspectorPort {
+  children(input: StudioInspectorRequestIdentity & { readonly instancePath: string }): Promise<StudioInspectorChildren>;
+  properties(
+    input: StudioInspectorRequestIdentity & { readonly instancePath: string },
+  ): Promise<StudioInspectorProperties>;
+}
+
 export interface RecapturedProjectContext {
   readonly project: ProjectRef;
   readonly servePlaceIds: readonly number[];
@@ -148,6 +158,7 @@ export interface AppControllerOptions {
   readonly subscribeRuntimeInvalidation: (listener: (projectId: string, reason: "rojo-exit") => void) => () => void;
   readonly brokerProvider: BrokerProviderPort;
   readonly bindings: BindingCoordinatorPort;
+  readonly inspector: StudioInspectorPort;
 }
 
 interface OperationToken {
@@ -319,6 +330,10 @@ export class AppController {
           return await this.#copyMcpUrl(command);
         case "runtime.copyRojoAddress":
           return await this.#copyRojoAddress(command);
+        case "studioInspector.children":
+          return await this.#readStudioChildren(command);
+        case "studioInspector.properties":
+          return await this.#readStudioProperties(command);
         case "plugin.inspect":
           return await this.#inspectPlugin(command.requestId);
         case "plugin.showFolder":
@@ -485,6 +500,115 @@ export class AppController {
       this.#options.native.writeClipboard(`127.0.0.1:${runtime.lease.port}`);
       return this.#success(command.requestId, { kind: "clipboard", label: "Rojo address copied" });
     });
+  }
+
+  async #readStudioChildren(
+    command: Extract<DesktopCommand, { type: "studioInspector.children" }>,
+  ): Promise<DesktopResponse> {
+    try {
+      this.#assertInspectorRequestCurrent(command);
+      const result = await this.#options.inspector.children({
+        projectId: command.projectId,
+        instanceId: command.instanceId,
+        bindingRevision: command.bindingRevision,
+        instancePath: command.instancePath,
+      });
+      const snapshot = this.#currentSnapshot();
+      this.#assertInspectorResultCurrent(command, result, snapshot);
+      return this.#success(
+        command.requestId,
+        { kind: "studio-inspector-children", ...result, children: [...result.children] },
+        snapshot,
+      );
+    } catch (error) {
+      return this.#failure(command.requestId, error, "studio");
+    }
+  }
+
+  async #readStudioProperties(
+    command: Extract<DesktopCommand, { type: "studioInspector.properties" }>,
+  ): Promise<DesktopResponse> {
+    try {
+      this.#assertInspectorRequestCurrent(command);
+      const result = await this.#options.inspector.properties({
+        projectId: command.projectId,
+        instanceId: command.instanceId,
+        bindingRevision: command.bindingRevision,
+        instancePath: command.instancePath,
+      });
+      const snapshot = this.#currentSnapshot();
+      this.#assertInspectorResultCurrent(command, result, snapshot);
+      return this.#success(
+        command.requestId,
+        { kind: "studio-inspector-properties", ...result, properties: [...result.properties] },
+        snapshot,
+      );
+    } catch (error) {
+      return this.#failure(command.requestId, error, "studio");
+    }
+  }
+
+  #assertInspectorRequestCurrent(
+    command: Extract<DesktopCommand, { type: "studioInspector.children" | "studioInspector.properties" }>,
+  ): void {
+    this.#assertRevision(command.expectedRevision);
+    const snapshot = this.#currentSnapshot();
+    const runtime = snapshot.runtimeByProject[command.projectId];
+    if (runtime?.state !== "studio-bound") {
+      throw fault(
+        "studio-inspector-not-bound",
+        "studio",
+        "The project is not bound to a Studio instance.",
+        "reconnect",
+        "Reconnect",
+      );
+    }
+    const brokerEpoch = runtime.broker?.brokerEpoch;
+    if (
+      runtime.studio === undefined ||
+      runtime.studio.instanceId !== command.instanceId ||
+      runtime.bindingRevision === undefined ||
+      runtime.bindingRevision !== command.bindingRevision ||
+      brokerEpoch === undefined ||
+      brokerEpoch.length === 0
+    ) {
+      throw fault(
+        "studio-inspector-identity-mismatch",
+        "studio",
+        "The Studio inspector identity is no longer current.",
+        "reconnect",
+        "Reconnect",
+      );
+    }
+  }
+
+  #assertInspectorResultCurrent(
+    command: Extract<DesktopCommand, { type: "studioInspector.children" | "studioInspector.properties" }>,
+    result: StudioInspectorChildren | StudioInspectorProperties,
+    snapshot: DesktopSnapshot,
+  ): void {
+    const runtime = snapshot.runtimeByProject[command.projectId];
+    const brokerEpoch = runtime?.broker?.brokerEpoch;
+    if (
+      runtime?.state !== "studio-bound" ||
+      runtime.studio === undefined ||
+      runtime.bindingRevision === undefined ||
+      brokerEpoch === undefined ||
+      brokerEpoch.length === 0 ||
+      result.projectId !== command.projectId ||
+      result.instanceId !== runtime.studio.instanceId ||
+      result.bindingRevision !== runtime.bindingRevision ||
+      result.brokerEpoch !== brokerEpoch ||
+      result.instancePath !== command.instancePath
+    ) {
+      throw fault(
+        "studio-inspector-identity-changed",
+        "studio",
+        "The Studio inspector identity changed while the read was in progress.",
+        "reconnect",
+        "Reconnect",
+      );
+    }
   }
 
   async #inspectPlugin(requestId: string): Promise<DesktopResponse> {

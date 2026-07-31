@@ -128,4 +128,34 @@ describe("desktop client", () => {
       { type: "settings.mcpPort", port: 60_000, expectedRevision: 19 },
     ]);
   });
+
+  it("sends only exact-bound Studio inspector identity through the existing request API", async () => {
+    const request = vi.fn(async (_input: DesktopCommandInput) => response());
+    const client = createDesktopClient({
+      api: { platform: "darwin", request, subscribe: vi.fn() },
+      getExpectedRevision: () => 19,
+    });
+
+    await client.loadStudioChildren("project-a", "studio-a", 7, "game.Workspace");
+    await client.loadStudioProperties("project-a", "studio-a", 7, "game.Workspace.Part");
+
+    expect(request.mock.calls.map(([command]) => command)).toEqual([
+      {
+        type: "studioInspector.children",
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 7,
+        instancePath: "game.Workspace",
+        expectedRevision: 19,
+      },
+      {
+        type: "studioInspector.properties",
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 7,
+        instancePath: "game.Workspace.Part",
+        expectedRevision: 19,
+      },
+    ]);
+  });
 });

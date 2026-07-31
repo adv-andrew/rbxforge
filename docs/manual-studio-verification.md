@@ -14,6 +14,7 @@ pnpm lint
 pnpm typecheck
 pnpm test
 pnpm build:desktop
+pnpm --filter @rbxforge/desktop test:visual
 pnpm package:desktop
 pnpm inspect:desktop
 pnpm smoke:desktop
@@ -24,6 +25,9 @@ They are designed to fail unless the desktop bundles and package satisfy their c
 - the production main entry opens/migrates a fresh SQLite database, composes the real controller and
   adapters, creates the `1280 × 800` onboarding window, exposes only the preload API, and reports no renderer
   console or page errors;
+- the deterministic visual fixture exercises the real renderer, preload, IPC, protocol, and Inspector
+  component route at `960 × 640`, `1280 × 800`, and `1440 × 900`, including lazy expansion, Properties,
+  responsive geometry, and accessibility; its schema-valid fixture responses are not live Studio evidence;
 - main/preload/renderer inventories contain no source maps, fixtures, VS Code runtime, OpenAI provider, auth
   token value, workspace absolute path, or unexpected network endpoint;
 - the exact ASAR main/preload/renderer inventory matches the external retained build paths, sizes, and
@@ -103,6 +107,25 @@ Before checking live behavior, record:
       acknowledgement is required each app session.
 - [ ] Confirm the connection sheet states that only one Studio edit window may be open per published place.
       Do not treat a single visible catalog row as proof that no duplicate window exists.
+
+### Read-only Studio Inspector
+
+- [ ] With a fresh **Studio bound** identity, choose **Inspect Studio** and confirm the Explorer loads the
+      expected top-level services from that exact place. The synthetic `game` root stays hidden, and unrelated
+      branches must remain unloaded until you expand them.
+- [ ] Expand `Workspace`, then one nested container in a disposable place. Confirm each branch loads only
+      after its disclosure control is used and that the displayed names, classes, and hierarchy match the
+      bound Studio window.
+- [ ] Select a known object and confirm Properties shows its class, canonical DataModel path, observation
+      timestamp, and expected bounded values. Confirm the panel contains no editable property controls,
+      source view, apply action, or Studio-selection action.
+- [ ] Disconnect or close the bound Studio place while the Inspector is open. Confirm the old tree and
+      Properties disappear, the Inspector closes or reports the connection change, and stale retry/refresh
+      actions cannot restore the prior binding.
+- [ ] Open two different published places containing deliberately unique object names. Bind the first place
+      and confirm the Inspector returns only its marker; then explicitly bind the second and confirm only the
+      second marker appears. Record each place ID, instance ID, binding revision, and screenshot. Do not run
+      this as a same-published-place test, because that upstream ambiguity remains undetectable.
 
 ### Freshness, isolation, and restart
 

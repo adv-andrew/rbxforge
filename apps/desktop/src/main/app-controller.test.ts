@@ -6,11 +6,14 @@ import type {
   ProjectRecord,
   ProjectRef,
   RojoLease,
+  StudioInspectorChildren,
+  StudioInspectorProperties,
+  StudioInspectorRequestIdentity,
   ThreadRecord,
 } from "../shared/domain.js";
 import type { DesktopCommand } from "../shared/protocol.js";
 import { AppController, type AppControllerOptions } from "./app-controller.js";
-import type { StudioCatalogSnapshot } from "./runtime/binding-coordinator.js";
+import type { BindingSnapshot, StudioCatalogSnapshot } from "./runtime/binding-coordinator.js";
 
 const projectA: ProjectRecord = Object.freeze({
   id: "project-a",
@@ -34,6 +37,41 @@ const threadA: ThreadRecord = Object.freeze({
   title: "New chat",
   createdAt: 1,
   updatedAt: 1,
+});
+
+const childrenResult: StudioInspectorChildren = Object.freeze({
+  projectId: "project-a",
+  instanceId: "studio-a",
+  bindingRevision: 1,
+  brokerEpoch: "epoch-a",
+  observedAt: 12,
+  instancePath: "game.Workspace",
+  children: Object.freeze([
+    Object.freeze({
+      name: "Part",
+      className: "Part",
+      path: "game.Workspace.Part",
+      hasChildren: false,
+    }),
+  ]),
+});
+
+const propertiesResult: StudioInspectorProperties = Object.freeze({
+  projectId: "project-a",
+  instanceId: "studio-a",
+  bindingRevision: 1,
+  brokerEpoch: "epoch-a",
+  observedAt: 13,
+  instancePath: "game.Workspace.Part",
+  className: "Part",
+  properties: Object.freeze([
+    Object.freeze({
+      name: "Anchored",
+      category: "Behavior",
+      value: "true",
+      valueKind: "boolean",
+    }),
+  ]),
 });
 
 describe("AppController", () => {
@@ -1117,6 +1155,229 @@ describe("AppController", () => {
     });
   });
 
+  it("returns one exact bound inspector children read without changing or publishing desktop state", async () => {
+    const harness = controllerHarness({ projectBlindCatalog: true });
+    const before = await bindStudio(harness);
+    harness.events.length = 0;
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toEqual({
+      version: 1,
+      requestId: "request-studioInspector.children",
+      ok: true,
+      snapshot: before,
+      result: { kind: "studio-inspector-children", ...childrenResult },
+    });
+    expect(harness.inspectorChildren).toHaveBeenCalledOnce();
+    expect(harness.inspectorChildren).toHaveBeenCalledWith({
+      projectId: "project-a",
+      instanceId: "studio-a",
+      bindingRevision: 1,
+      instancePath: "game.Workspace",
+    });
+    expect(harness.inspectorProperties).not.toHaveBeenCalled();
+    expect(harness.events).toEqual([]);
+  });
+
+  it("returns one exact bound inspector properties read", async () => {
+    const harness = controllerHarness({ projectBlindCatalog: true });
+    const before = await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.properties", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace.Part",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toMatchObject({
+      ok: true,
+      snapshot: { revision: before.revision },
+      result: { kind: "studio-inspector-properties", ...propertiesResult },
+    });
+    expect(harness.inspectorProperties).toHaveBeenCalledOnce();
+    expect(harness.inspectorChildren).not.toHaveBeenCalled();
+  });
+
+  it("rejects a stale Studio inspector read before the service", async () => {
+    const harness = controllerHarness({ projectBlindCatalog: true });
+    await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: 99,
+      }),
+    );
+
+    expect(response).toMatchObject({ ok: false, error: { code: "stale-command" } });
+    expect(harness.inspectorChildren).not.toHaveBeenCalled();
+  });
+
+  it("rejects a disconnected Studio inspector read before the service", async () => {
+    const harness = controllerHarness();
+    const before = await harness.controller.initialize();
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toMatchObject({ ok: false, error: { code: "studio-inspector-not-bound" } });
+    expect(harness.inspectorChildren).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ["project mismatch", { projectId: "project-missing" }, {}],
+    ["instance mismatch", { instanceId: "studio-b" }, {}],
+    ["missing binding revision", {}, { omitBoundBindingRevision: true }],
+    ["missing broker epoch", {}, { omitBrokerEpoch: true }],
+  ] as const)("rejects a Studio inspector %s before the service", async (_label, commandPatch, harnessOptions) => {
+    const harness = controllerHarness({ projectBlindCatalog: true, ...harnessOptions });
+    const before = await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: before.revision,
+        ...commandPatch,
+      }),
+    );
+
+    expect(response).toMatchObject({ ok: false });
+    expect(harness.inspectorChildren).not.toHaveBeenCalled();
+  });
+
+  it("normalizes a Studio inspector service failure without raw payload or secret text", async () => {
+    const harness = controllerHarness({
+      projectBlindCatalog: true,
+      inspectorChildren: async () => {
+        throw Object.assign(new Error("token=studio-secret"), {
+          rawPayload: { arguments: { instance_id: "studio-a", api_key: "raw-secret" } },
+        });
+      },
+    });
+    const before = await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toMatchObject({
+      ok: false,
+      error: {
+        layer: "studio",
+        code: "operation-failed",
+        message: "The Studio operation could not be completed.",
+      },
+    });
+    expect(JSON.stringify(response)).not.toMatch(/studio-secret|raw-secret|rawPayload|api_key/);
+  });
+
+  it("rejects a Studio inspector result whose host identity does not match the visible runtime", async () => {
+    const harness = controllerHarness({
+      projectBlindCatalog: true,
+      inspectorChildren: async () => ({
+        ...childrenResult,
+        projectId: "project-b",
+        instanceId: "studio-b",
+        bindingRevision: 99,
+        brokerEpoch: "epoch-b",
+      }),
+    });
+    const before = await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toMatchObject({ ok: false, error: { code: "studio-inspector-identity-changed" } });
+    expect(response).not.toHaveProperty("result");
+  });
+
+  it("rejects Studio inspector children returned for a different canonical path", async () => {
+    const harness = controllerHarness({
+      projectBlindCatalog: true,
+      inspectorChildren: async () => ({
+        ...childrenResult,
+        instancePath: "game.ServerStorage",
+      }),
+    });
+    const before = await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.children", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toMatchObject({ ok: false, error: { code: "studio-inspector-identity-changed" } });
+    expect(response).not.toHaveProperty("result");
+  });
+
+  it("rejects Studio inspector properties returned for a different canonical path", async () => {
+    const harness = controllerHarness({
+      projectBlindCatalog: true,
+      inspectorProperties: async () => ({
+        ...propertiesResult,
+        instancePath: "game.ServerStorage.Part",
+      }),
+    });
+    const before = await bindStudio(harness);
+
+    const response = await harness.controller.execute(
+      command("studioInspector.properties", {
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 1,
+        instancePath: "game.Workspace.Part",
+        expectedRevision: before.revision,
+      }),
+    );
+
+    expect(response).toMatchObject({ ok: false, error: { code: "studio-inspector-identity-changed" } });
+    expect(response).not.toHaveProperty("result");
+  });
+
   it("projects plugin results so internal inspector and backup paths never cross the boundary", async () => {
     const harness = controllerHarness();
     await harness.controller.initialize();
@@ -1384,6 +1645,14 @@ interface HarnessOptions {
   readonly watcherStartFailure?: boolean;
   readonly watcherDisposeFailure?: boolean;
   readonly runtimeDisposeFailure?: boolean;
+  readonly omitBoundBindingRevision?: boolean;
+  readonly omitBrokerEpoch?: boolean;
+  readonly inspectorChildren?: (
+    input: StudioInspectorRequestIdentity & { readonly instancePath: string },
+  ) => Promise<StudioInspectorChildren>;
+  readonly inspectorProperties?: (
+    input: StudioInspectorRequestIdentity & { readonly instancePath: string },
+  ) => Promise<StudioInspectorProperties>;
   readonly synchronousDisposeFailures?: ReadonlySet<"watcher" | "binding" | "lease" | "runtime" | "broker">;
   readonly synchronousCommandCleanupFailures?: ReadonlySet<"binding" | "polling" | "broker" | "rojo" | "watcher">;
   readonly projectCandidates?: {
@@ -1478,6 +1747,20 @@ function controllerHarness(options: HarnessOptions = {}) {
     | "needs-reconnect"
     | "catalog-ambiguous"
     | "project-mismatch" = "disconnected";
+  const inspectorChildren = vi.fn(async (input: StudioInspectorRequestIdentity & { readonly instancePath: string }) =>
+    options.inspectorChildren === undefined ? childrenResult : options.inspectorChildren(input),
+  );
+  const inspectorProperties = vi.fn(
+    async (input: StudioInspectorRequestIdentity & { readonly instancePath: string }) =>
+      options.inspectorProperties === undefined ? propertiesResult : options.inspectorProperties(input),
+  );
+  const brokerReady = () =>
+    ({
+      ...(options.omitBrokerEpoch ? {} : { brokerEpoch: "epoch-a" }),
+      primaryPort: 58741,
+      legacyStatus: "unknown" as const,
+      startedAt: 4,
+    }) as StudioBrokerLease["ready"];
   const lease: RojoLease = Object.freeze({
     leaseId: "lease-a",
     projectId: "project-a",
@@ -1779,7 +2062,7 @@ function controllerHarness(options: HarnessOptions = {}) {
             brokerRefCount += 1;
             let released = false;
             return {
-              ready: { brokerEpoch: "epoch-a", primaryPort: 58741, legacyStatus: "unknown" as const, startedAt: 4 },
+              ready: brokerReady(),
               release: () => {
                 if (released) return Promise.resolve();
                 released = true;
@@ -1803,7 +2086,7 @@ function controllerHarness(options: HarnessOptions = {}) {
             state: brokerRefCount > 0 ? ("ready" as const) : ("stopped" as const),
             ...(brokerRefCount > 0
               ? {
-                  ready: { brokerEpoch: "epoch-a", primaryPort: 58741, legacyStatus: "unknown" as const, startedAt: 4 },
+                  ready: brokerReady(),
                 }
               : {}),
             referenceCount: brokerRefCount,
@@ -1924,46 +2207,47 @@ function controllerHarness(options: HarnessOptions = {}) {
         bindingInvalidations.push(reason);
         bindingState = "needs-reconnect";
       },
-      snapshot: (projectId) => ({
-        state: bindingState,
-        ...(catalogRevision === 0 ? {} : { catalog: projectCatalog(projectId) }),
-        ...(bindingState === "rojo-server-ready"
-          ? {
-              pending: {
-                projectId: "project-a",
-                bindingRevision: 1,
-                catalogRevision: 1,
-                instanceId: "studio-a",
-                rojoHandoffRequired: true as const,
-              },
-            }
-          : {}),
-        ...(bindingState === "studio-bound"
-          ? {
-              binding: {
-                bindingId: "binding-a",
-                bindingRevision: 1,
-                project: {} as ProjectRef,
-                rojo: lease,
-                studio: {
-                  brokerEpoch: "epoch-a",
-                  instanceId: "studio-a",
-                  connectedAt: 3,
-                  placeId: 101,
-                  role: "edit",
-                  pluginVariant: "main",
-                  pluginVersion: "2.22.5",
-                  serverVersion: "2.22.5",
-                  lastActivity: 10,
-                  catalogObservedAt: 10,
+      snapshot: (projectId) =>
+        ({
+          state: bindingState,
+          ...(catalogRevision === 0 ? {} : { catalog: projectCatalog(projectId) }),
+          ...(bindingState === "rojo-server-ready"
+            ? {
+                pending: {
+                  projectId: "project-a",
+                  bindingRevision: 1,
                   catalogRevision: 1,
+                  instanceId: "studio-a",
+                  rojoHandoffRequired: true as const,
                 },
-                rojoHandoffConfirmedAt: 11,
-              },
-            }
-          : {}),
-        samePublishedPlaceLimitation: "Only one Studio edit window per published place.",
-      }),
+              }
+            : {}),
+          ...(bindingState === "studio-bound"
+            ? {
+                binding: {
+                  bindingId: "binding-a",
+                  ...(options.omitBoundBindingRevision ? {} : { bindingRevision: 1 }),
+                  project: {} as ProjectRef,
+                  rojo: lease,
+                  studio: {
+                    brokerEpoch: "epoch-a",
+                    instanceId: "studio-a",
+                    connectedAt: 3,
+                    placeId: 101,
+                    role: "edit",
+                    pluginVariant: "main",
+                    pluginVersion: "2.22.5",
+                    serverVersion: "2.22.5",
+                    lastActivity: 10,
+                    catalogObservedAt: 10,
+                    catalogRevision: 1,
+                  },
+                  rojoHandoffConfirmedAt: 11,
+                },
+              }
+            : {}),
+          samePublishedPlaceLimitation: "Only one Studio edit window per published place.",
+        }) as BindingSnapshot,
       subscribeInvalidation: (listener) => {
         bindingInvalidation = listener;
         return () => sequence.push("binding-unsubscribe");
@@ -1985,6 +2269,10 @@ function controllerHarness(options: HarnessOptions = {}) {
         projectContextUpdates.push(context);
       },
       removeProjectContext: vi.fn(),
+    },
+    inspector: {
+      children: inspectorChildren,
+      properties: inspectorProperties,
     },
   };
 
@@ -2009,6 +2297,8 @@ function controllerHarness(options: HarnessOptions = {}) {
     networkCalls,
     shownFolders,
     projectContextUpdates,
+    inspectorChildren,
+    inspectorProperties,
     catalog,
     get pickFileCalls() {
       return pickFileCalls;
@@ -2061,6 +2351,36 @@ function controllerHarness(options: HarnessOptions = {}) {
       brokerExit?.();
     },
   };
+}
+
+async function bindStudio(harness: ReturnType<typeof controllerHarness>): Promise<DesktopSnapshot> {
+  const initial = await harness.controller.initialize();
+  const connected = await harness.controller.execute(
+    command("runtime.connect", {
+      projectId: "project-a",
+      expectedRevision: initial.revision,
+    }),
+  );
+  if (!connected.ok) throw new Error("fixture connect failed");
+  const selected = await harness.controller.execute(
+    command("runtime.selectStudio", {
+      projectId: "project-a",
+      instanceId: "studio-a",
+      catalogRevision: 1,
+      warningAccepted: false,
+      expectedRevision: connected.snapshot.revision,
+    }),
+  );
+  if (!selected.ok) throw new Error("fixture Studio selection failed");
+  const bound = await harness.controller.execute(
+    command("runtime.confirmRojoHandoff", {
+      projectId: "project-a",
+      bindingRevision: 1,
+      expectedRevision: selected.snapshot.revision,
+    }),
+  );
+  if (!bound.ok) throw new Error("fixture Studio binding failed");
+  return bound.snapshot;
 }
 
 function deferred<T>() {

@@ -26,6 +26,7 @@ import type {
   StudioBrokerReady,
   StudioBrokerSnapshot,
 } from "../../src/main/runtime/studio-broker-controller.js";
+import { StudioInspectorService } from "../../src/main/runtime/studio-inspector-service.js";
 import { AUDITED_STUDIO_PLUGIN } from "../../src/main/runtime/studio-plugin-installer.js";
 import { ConversationRepository } from "../../src/main/storage/conversation-repository.js";
 import { openDesktopDatabase, type DesktopDatabase } from "../../src/main/storage/database.js";
@@ -640,6 +641,7 @@ async function createIntegrationHarness(options: InternalHarnessOptions): Promis
     },
   });
   const watchers = new Map<string, ManualProjectWatcher>();
+  const inspector = new StudioInspectorService({ bindings, now: clock.now });
   const controller = new AppController({
     projects,
     conversations,
@@ -689,6 +691,7 @@ async function createIntegrationHarness(options: InternalHarnessOptions): Promis
     },
     brokerProvider,
     bindings,
+    inspector,
   });
   const snapshot = await controller.initialize();
   return new IntegrationHarness({

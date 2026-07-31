@@ -297,6 +297,81 @@ describe("StudioMcpService", () => {
     expect(client.calls).toHaveLength(2);
   });
 
+  test("child reads enforce the expected active instance before MCP", async () => {
+    const client = new FakeMcpClient({
+      tools,
+      responses: [instancesBody([instance])],
+    });
+    const service = createService(client);
+    await selectFromCatalog(service);
+
+    await expect(service.children("game.Workspace", { expectedInstanceId: "place:other" })).rejects.toThrow(
+      "Active Studio instance changed",
+    );
+    expect(client.calls).toHaveLength(1);
+  });
+
+  test("child reads reject a mismatched response parent", async () => {
+    const service = createService(
+      new FakeMcpClient({
+        tools,
+        responses: [
+          instancesBody([instance]),
+          textBody({ instancePath: "game.ReplicatedStorage", children: [], count: 0 }),
+        ],
+      }),
+    );
+    await selectFromCatalog(service);
+
+    await expect(service.children("game.Workspace")).rejects.toThrow(
+      "Children response path does not match the request",
+    );
+  });
+
+  test("child reads reject a declared count that differs from the rows", async () => {
+    const service = createService(
+      new FakeMcpClient({
+        tools,
+        responses: [
+          instancesBody([instance]),
+          textBody({
+            instancePath: "game.Workspace",
+            children: [
+              {
+                name: "Part",
+                className: "Part",
+                path: "game.Workspace.Part",
+                hasChildren: false,
+                hasSource: false,
+              },
+            ],
+            count: 2,
+          }),
+        ],
+      }),
+    );
+    await selectFromCatalog(service);
+
+    await expect(service.children("game.Workspace")).rejects.toThrow("Children response count does not match the rows");
+  });
+
+  test("property reads reject a mismatched response path", async () => {
+    const service = createService(
+      new FakeMcpClient({
+        tools,
+        responses: [
+          instancesBody([instance]),
+          textBody({ instancePath: "game.Workspace.Other", className: "Part", properties: {} }),
+        ],
+      }),
+    );
+    await selectFromCatalog(service);
+
+    await expect(service.properties("game.Workspace.Part")).rejects.toThrow(
+      "Properties response path does not match the request",
+    );
+  });
+
   test("rejects a write expected-instance race before route capture, gate, or MCP", async () => {
     const alternate = { ...instance, instanceId: "place:456", placeId: 456 };
     const client = new FakeMcpClient({

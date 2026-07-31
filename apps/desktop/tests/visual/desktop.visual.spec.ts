@@ -1,4 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
+import { AxeBuilder } from "@axe-core/playwright";
 import sharp from "sharp";
 
 import { launchElectronFixture } from "../electron/electron-fixture.js";
@@ -17,6 +18,11 @@ const WORKING_STATES = new Set<VisualState>([
   "studio-bound",
   "mismatch-error",
 ]);
+const INSPECTOR_READY_CASES = [
+  { width: 960, height: 640, inspectorWidth: 360, mode: "overlay" },
+  { width: 1280, height: 800, inspectorWidth: 320, mode: "dock" },
+  { width: 1440, height: 900, inspectorWidth: 360, mode: "dock" },
+] as const;
 
 test.describe.configure({ mode: "serial" });
 
@@ -65,6 +71,169 @@ for (const state of VISUAL_STATES) {
   }
 }
 
+for (const inspectorCase of INSPECTOR_READY_CASES) {
+  test(`Studio inspector ready at ${inspectorCase.width}x${inspectorCase.height}`, async () => {
+    const viewport = { width: inspectorCase.width, height: inspectorCase.height };
+    const fixture = await launchElectronFixture("studio-inspector", viewport);
+    try {
+      const page = fixture.window;
+      const originalConversation = await conversationGeometry(page);
+      await openReadyStudioInspector(page);
+
+      await expectInspectorGeometry(page, viewport, inspectorCase.inspectorWidth, inspectorCase.mode);
+      await expectShellGeometry(page, fixture, viewport, {
+        inspectorWidth: inspectorCase.inspectorWidth,
+        inspectorMode: inspectorCase.mode,
+      });
+      await expectNoHorizontalOverflow(page);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth)).toBe(
+        await page.evaluate(() => document.documentElement.clientWidth),
+      );
+      await expect(page.getByRole("complementary", { name: "Studio inspector" })).toBeVisible();
+      await expect(page.getByRole("main", { name: "Conversation" })).toBeVisible();
+      expect(
+        await page.evaluate(() => ({
+          locale: new Intl.DateTimeFormat().resolvedOptions().locale,
+          timeZone: new Intl.DateTimeFormat().resolvedOptions().timeZone,
+        })),
+      ).toEqual({ locale: "en-US", timeZone: "UTC" });
+
+      if (inspectorCase.mode === "overlay") {
+        expect(await conversationGeometry(page)).toEqual(originalConversation);
+        await expect(page.getByRole("tab", { name: "Explorer" })).toBeVisible();
+        await expect(page.getByRole("tab", { name: "Properties" })).toHaveAttribute("aria-selected", "true");
+      } else {
+        await expectComposerClearOfDock(page);
+      }
+
+      const axe = await new AxeBuilder({ page })
+        .setLegacyMode()
+        .withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"])
+        .analyze();
+      expect(axe.violations, formatAxeViolations(axe.violations)).toEqual([]);
+      expect(fixture.consoleErrors).toEqual([]);
+      expect(fixture.pageErrors).toEqual([]);
+
+      const screenshotName = `studio-inspector-${viewport.width}x${viewport.height}.png`;
+      await expect(page).toHaveScreenshot(screenshotName, {
+        animations: "disabled",
+        caret: "hide",
+        maxDiffPixels: 0,
+        scale: "css",
+        threshold: 0,
+      });
+      const screenshot = await page.screenshot({ animations: "disabled", caret: "hide", scale: "css" });
+      expect(await classicRedRatio(screenshot, await accessibleBrandRects(page))).toBeLessThan(0.1);
+    } finally {
+      await fixture.close();
+    }
+  });
+}
+
+test("Studio inspector error at 1280x800", async () => {
+  const viewport = { width: 1280, height: 800 } as const;
+  const fixture = await launchElectronFixture("studio-inspector-error", viewport);
+  try {
+    const page = fixture.window;
+    await page.getByRole("button", { name: "Inspect Studio" }).click();
+    await expect(page.getByRole("complementary", { name: "Studio inspector" }).getByRole("alert")).toContainText(
+      "Studio inspection is temporarily unavailable.",
+    );
+    await expectInspectorGeometry(page, viewport, 320, "dock");
+    await expectShellGeometry(page, fixture, viewport, { inspectorWidth: 320, inspectorMode: "dock" });
+    await expectNoHorizontalOverflow(page);
+    await expectComposerClearOfDock(page);
+    expect(fixture.consoleErrors).toEqual([]);
+    expect(fixture.pageErrors).toEqual([]);
+
+    await expect(page).toHaveScreenshot("studio-inspector-error-1280x800.png", {
+      animations: "disabled",
+      caret: "hide",
+      maxDiffPixels: 0,
+      scale: "css",
+      threshold: 0,
+    });
+  } finally {
+    await fixture.close();
+  }
+});
+
+async function openReadyStudioInspector(page: Page): Promise<void> {
+  await page.getByRole("button", { name: "Inspect Studio" }).click();
+  await expect(page.getByRole("treeitem", { name: "Workspace, Workspace" })).toBeVisible();
+  await page.getByRole("button", { name: "Expand Workspace" }).click();
+  await expect(page.getByRole("treeitem", { name: "MainPart, Part" })).toBeVisible();
+  await page.getByRole("treeitem", { name: "MainPart, Part" }).click();
+  await expect(page.getByText("game.Workspace.MainPart", { exact: true })).toBeVisible();
+  await expect(page.getByText("Observed 2026-07-28 18:30:00.000 UTC", { exact: true })).toBeVisible();
+}
+
+async function expectInspectorGeometry(
+  page: Page,
+  viewport: { readonly width: number; readonly height: number },
+  inspectorWidth: number,
+  mode: "dock" | "overlay",
+): Promise<void> {
+  const geometry = await page.evaluate(() => {
+    const element = document.querySelector<HTMLElement>("aside[aria-label='Studio inspector']")!;
+    const box = element.getBoundingClientRect();
+    return { x: box.x, y: box.y, width: box.width, height: box.height, right: box.right, bottom: box.bottom };
+  });
+  expect(geometry).toEqual({
+    x: viewport.width - inspectorWidth,
+    y: 60,
+    width: inspectorWidth,
+    height: viewport.height - 60,
+    right: viewport.width,
+    bottom: viewport.height,
+  });
+  if (mode === "overlay") {
+    const overlay = await page.evaluate(() => {
+      const element = document.querySelector<HTMLElement>("aside[aria-label='Studio inspector']")!
+        .previousElementSibling as HTMLElement;
+      const box = element.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    });
+    expect(overlay).toEqual({ x: 272, y: 60, width: viewport.width - 272, height: viewport.height - 60 });
+  }
+}
+
+async function expectComposerClearOfDock(page: Page): Promise<void> {
+  const { composer, inspector } = await page.evaluate(() => {
+    const composerBox = document
+      .querySelector<HTMLElement>("section[aria-label='Local prompt composer']")!
+      .getBoundingClientRect();
+    const inspectorBox = document
+      .querySelector<HTMLElement>("aside[aria-label='Studio inspector']")!
+      .getBoundingClientRect();
+    return {
+      composer: { left: composerBox.left, right: composerBox.right, top: composerBox.top, bottom: composerBox.bottom },
+      inspector: {
+        left: inspectorBox.left,
+        right: inspectorBox.right,
+        top: inspectorBox.top,
+        bottom: inspectorBox.bottom,
+      },
+    };
+  });
+  expect(composer.right).toBeLessThanOrEqual(inspector.left);
+  expect(composer.left).toBeLessThan(composer.right);
+}
+
+async function conversationGeometry(page: Page) {
+  return page.evaluate(() => {
+    const rectangle = (selector: string) => {
+      const box = document.querySelector<HTMLElement>(selector)!.getBoundingClientRect();
+      return { x: box.x, y: box.y, width: box.width, height: box.height };
+    };
+    return {
+      main: rectangle("main[aria-label='Conversation']"),
+      history: rectangle("section[aria-label='Conversation history']"),
+      composer: rectangle("section[aria-label='Local prompt composer']"),
+    };
+  });
+}
+
 async function revealStateSpecificSheetEvidence(page: Page, state: VisualState): Promise<void> {
   const target =
     state === "studio-selection"
@@ -92,6 +261,12 @@ async function expectShellGeometry(
   page: Page,
   fixture: Awaited<ReturnType<typeof launchElectronFixture>>,
   viewport: { readonly width: number; readonly height: number },
+  inspector:
+    | {
+        readonly inspectorWidth: number;
+        readonly inspectorMode: "dock" | "overlay";
+      }
+    | undefined = undefined,
 ): Promise<void> {
   const geometry = await fixture.geometry();
   expect(geometry.bounds).toMatchObject(viewport);
@@ -131,7 +306,7 @@ async function expectShellGeometry(
   expect(shell.main).toMatchObject({
     x: 272,
     y: 60,
-    width: viewport.width - 272,
+    width: viewport.width - 272 - (inspector?.inspectorMode === "dock" ? inspector.inspectorWidth : 0),
     height: viewport.height - 60,
   });
   expect(shell.contentWidths.every((width) => width <= 760)).toBe(true);
@@ -139,6 +314,14 @@ async function expectShellGeometry(
   expect(shell.brand.y).toBeGreaterThanOrEqual(12);
   expect(geometry.buttonPosition!.x + 54).toBeLessThan(shell.brand.x);
   expect(geometry.buttonPosition!.y + 14).toBeLessThan(shell.header.height);
+}
+
+function formatAxeViolations(
+  violations: readonly { readonly id: string; readonly nodes: readonly { readonly target: readonly string[] }[] }[],
+): string {
+  return violations
+    .map(({ id, nodes }) => `${id}: ${nodes.map(({ target }) => target.join(" ")).join(", ")}`)
+    .join("\n");
 }
 
 async function expectNoHorizontalOverflow(page: Page): Promise<void> {
@@ -156,8 +339,16 @@ async function expectNoHorizontalOverflow(page: Page): Promise<void> {
           box.bottom > 0 &&
           box.top < innerHeight;
         const intentionalEllipsis = element.dataset.ellipsized === "true" || style.textOverflow === "ellipsis";
+        const visuallyHidden =
+          style.position === "absolute" && style.overflow === "hidden" && box.width <= 1 && box.height <= 1;
         const textLeaf = element.childElementCount === 0 && (element.textContent?.trim().length ?? 0) > 0;
-        return visible && textLeaf && !intentionalEllipsis && element.scrollWidth > element.clientWidth + 1;
+        return (
+          visible &&
+          textLeaf &&
+          !intentionalEllipsis &&
+          !visuallyHidden &&
+          element.scrollWidth > element.clientWidth + 1
+        );
       })
       .map((element) => ({
         tag: element.tagName.toLowerCase(),

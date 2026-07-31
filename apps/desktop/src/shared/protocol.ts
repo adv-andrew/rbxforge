@@ -1,3 +1,6 @@
+/// <reference types="node" />
+
+import { formatDataModelPath, parseDataModelPath } from "@rbxforge/core";
 import { z } from "zod";
 import { MAX_ECMASCRIPT_DATE_TIMESTAMP_MS } from "./domain.js";
 import { desktopErrorSchema } from "./errors.js";
@@ -8,6 +11,18 @@ const portSchema = z.number().int().min(1_024).max(65_535);
 const identifierSchema = z.string().min(1);
 const contentSchema = z.string().max(100_000);
 const titleSchema = z.string().trim().min(1).max(120);
+const inspectorLabelSchema = z.string().min(1).max(256);
+const canonicalDataModelPathSchema = z
+  .string()
+  .min(1)
+  .max(4_096)
+  .refine((path) => {
+    try {
+      return formatDataModelPath(parseDataModelPath(path)) === path;
+    } catch {
+      return false;
+    }
+  }, "Studio inspector paths must be canonical DataModel paths.");
 
 const projectRecordSchema = z
   .object({
@@ -326,6 +341,26 @@ const runtimeCopyMcpUrlInputSchema = z
 const runtimeCopyRojoAddressInputSchema = z
   .object({ type: z.literal("runtime.copyRojoAddress"), projectId: identifierSchema })
   .strict();
+const studioInspectorRequestIdentityShape = {
+  projectId: identifierSchema,
+  instanceId: identifierSchema,
+  bindingRevision: nonnegativeSafeInteger,
+  instancePath: canonicalDataModelPathSchema,
+} as const;
+const studioInspectorChildrenInputSchema = z
+  .object({
+    type: z.literal("studioInspector.children"),
+    ...studioInspectorRequestIdentityShape,
+    expectedRevision: nonnegativeSafeInteger,
+  })
+  .strict();
+const studioInspectorPropertiesInputSchema = z
+  .object({
+    type: z.literal("studioInspector.properties"),
+    ...studioInspectorRequestIdentityShape,
+    expectedRevision: nonnegativeSafeInteger,
+  })
+  .strict();
 const pluginInspectInputSchema = z.object({ type: z.literal("plugin.inspect") }).strict();
 const pluginInstallInputSchema = z
   .object({ type: z.literal("plugin.install"), confirmReplace: z.boolean(), expectedRevision: nonnegativeSafeInteger })
@@ -366,6 +401,8 @@ const commandInputSchemas = [
   runtimeRefreshInputSchema,
   runtimeCopyMcpUrlInputSchema,
   runtimeCopyRojoAddressInputSchema,
+  studioInspectorChildrenInputSchema,
+  studioInspectorPropertiesInputSchema,
   pluginInspectInputSchema,
   pluginInstallInputSchema,
   pluginShowFolderInputSchema,
@@ -401,6 +438,8 @@ export const desktopCommandSchema = z.discriminatedUnion("type", [
   withCommandEnvelope(runtimeRefreshInputSchema),
   withCommandEnvelope(runtimeCopyMcpUrlInputSchema),
   withCommandEnvelope(runtimeCopyRojoAddressInputSchema),
+  withCommandEnvelope(studioInspectorChildrenInputSchema),
+  withCommandEnvelope(studioInspectorPropertiesInputSchema),
   withCommandEnvelope(pluginInspectInputSchema),
   withCommandEnvelope(pluginInstallInputSchema),
   withCommandEnvelope(pluginShowFolderInputSchema),
@@ -418,6 +457,29 @@ const pluginInspectionViewSchema = z
     destinationSha256: z.string().optional(),
     restartRequired: z.boolean(),
     detail: z.string(),
+  })
+  .strict();
+
+const studioInspectorResultIdentityShape = {
+  ...studioInspectorRequestIdentityShape,
+  brokerEpoch: identifierSchema,
+  observedAt: studioTimestampSchema,
+} as const;
+const studioInspectorNodeSchema = z
+  .object({
+    name: inspectorLabelSchema,
+    className: inspectorLabelSchema,
+    path: canonicalDataModelPathSchema,
+    hasChildren: z.boolean(),
+    enabled: z.boolean().optional(),
+  })
+  .strict();
+const studioInspectorPropertySchema = z
+  .object({
+    name: inspectorLabelSchema,
+    category: z.enum(["Appearance", "Behavior", "Transform", "Layout", "Content", "Data", "Other"]),
+    value: z.string().max(8_192),
+    valueKind: z.enum(["boolean", "number", "string", "structured", "nil", "unsupported"]),
   })
   .strict();
 
@@ -441,6 +503,21 @@ const desktopResultSchema = z.discriminatedUnion("kind", [
   z.object({ kind: z.literal("plugin-inspection"), inspection: pluginInspectionViewSchema }).strict(),
   z.object({ kind: z.literal("rojo-choice"), changed: z.boolean() }).strict(),
   z.object({ kind: z.literal("clipboard"), label: z.string().min(1) }).strict(),
+  z
+    .object({
+      kind: z.literal("studio-inspector-children"),
+      ...studioInspectorResultIdentityShape,
+      children: z.array(studioInspectorNodeSchema).max(1_000),
+    })
+    .strict(),
+  z
+    .object({
+      kind: z.literal("studio-inspector-properties"),
+      ...studioInspectorResultIdentityShape,
+      className: inspectorLabelSchema,
+      properties: z.array(studioInspectorPropertySchema).max(512),
+    })
+    .strict(),
 ]);
 
 export const desktopResponseSchema = z.discriminatedUnion("ok", [

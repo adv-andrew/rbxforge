@@ -192,6 +192,30 @@ describe("desktop design contracts", () => {
     expect(keyline?.toString()).toContain("width: 12px");
   });
 
+  it("keeps the Studio inspector dock at two rows and adds a tab row only in compact mode", async () => {
+    const file = resolve(rendererRoot, "components/StudioInspector/StudioInspector.module.css");
+    const root = postcss.parse(await readFile(file, "utf8"), { from: file });
+    const declarationsFor = (selector: string) => {
+      const declarations = new Map<string, string>();
+      root.walkRules((rule) => {
+        if (rule.selector !== selector) return;
+        rule.walkDecls((declaration) => declarations.set(declaration.prop, declaration.value));
+      });
+      return declarations;
+    };
+
+    expect(declarationsFor(".root").get("grid-template-rows")).toBe("auto minmax(0, 1fr)");
+    expect(declarationsFor(".compact").get("grid-template-rows")).toBe("auto auto minmax(0, 1fr)");
+    expect(declarationsFor(".body").get("grid-template-rows")).toBe("minmax(0, 2fr) minmax(0, 3fr)");
+    expect(declarationsFor('.indent[data-level="16"]').get("flex-basis")).toContain(
+      "var(--inspector-tree-indent-step)",
+    );
+    const path = declarationsFor(".selectionPath");
+    expect(path.get("overflow")).toBe("hidden");
+    expect(path.get("text-overflow")).toBe("ellipsis");
+    expect(path.get("white-space")).toBe("nowrap");
+  });
+
   it.each([
     ["remote import", '@import url("https://example.test/theme.css");', "imports are forbidden"],
     ["local import", '@import "./tokens.css";', "imports are forbidden"],

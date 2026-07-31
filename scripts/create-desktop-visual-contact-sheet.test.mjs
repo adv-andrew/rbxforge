@@ -11,7 +11,7 @@ import { repositoryRoot } from "./lib/repository.mjs";
 const desktopRequire = createRequire(resolve(repositoryRoot, "apps/desktop/package.json"));
 const sharp = desktopRequire("sharp");
 
-test("desktop visual contact sheet requires and labels the exact 18-state matrix", async (t) => {
+test("desktop visual contact sheet requires and labels the exact 22-image inventory", async (t) => {
   const temporaryRoot = await mkdtemp(resolve(tmpdir(), "rbxforge-contact-sheet-"));
   t.after(() => rm(temporaryRoot, { recursive: true, force: true }));
   const screenshotsRoot = resolve(temporaryRoot, "screenshots");
@@ -31,17 +31,17 @@ test("desktop visual contact sheet requires and labels the exact 18-state matrix
   }
 
   const result = await createDesktopVisualContactSheet({ screenshotsRoot, outputPath });
-  assert.equal(result.panels, 18);
+  assert.equal(result.panels, 22);
   assert.deepEqual(result.files, DESKTOP_VISUAL_SCREENSHOTS);
   assert.deepEqual(await sharp(outputPath).metadata(), {
     ...(await sharp(outputPath).metadata()),
     width: 1_440,
-    height: 1_968,
+    height: 2_624,
   });
 
   await rm(resolve(screenshotsRoot, DESKTOP_VISUAL_SCREENSHOTS[0]));
   await assert.rejects(
     createDesktopVisualContactSheet({ screenshotsRoot, outputPath }),
-    /exact 18-screenshot.*missing=/i,
+    /exact 22-screenshot.*missing=/i,
   );
 });

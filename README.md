@@ -55,8 +55,10 @@ runtime boundaries each session.
 - **Studio bound** means RbxForge captured a fresh, explicitly selected Studio identity and your manual Rojo
   handoff confirmation. The standalone MVP performs discovery reads only. It does not mutate Studio objects,
   properties, source, assets, places, or Team Create state.
-- The standalone MVP has no source editor, terminal, filesystem tree, Studio object explorer, Properties
-  panel, playtest control, publishing, asset upload, Rojo syncback, or autonomous write path.
+- Exact-bound, read-only Studio Inspector with lazy Explorer children and bounded Properties.
+- The standalone MVP has no AI or model execution, source editor, terminal, filesystem tree, Studio writes,
+  source display, Studio selection sync, full-tree prefetch or search, playtest control, publishing, asset
+  upload, Rojo syncback, or autonomous write path.
 
 ## Open the unsigned macOS build
 

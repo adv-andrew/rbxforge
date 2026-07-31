@@ -11,10 +11,17 @@ const sharp = desktopRequire("sharp");
 
 const STATES = ["onboarding", "empty-chat", "populated-chat", "studio-selection", "studio-bound", "mismatch-error"];
 const VIEWPORTS = ["960x640", "1280x800", "1440x900"];
+const INSPECTOR_SCREENSHOTS = [
+  "studio-inspector-960x640.png",
+  "studio-inspector-1280x800.png",
+  "studio-inspector-1440x900.png",
+  "studio-inspector-error-1280x800.png",
+];
 
-export const DESKTOP_VISUAL_SCREENSHOTS = Object.freeze(
-  STATES.flatMap((state) => VIEWPORTS.map((viewport) => `${state}-${viewport}.png`)),
-);
+export const DESKTOP_VISUAL_SCREENSHOTS = Object.freeze([
+  ...STATES.flatMap((state) => VIEWPORTS.map((viewport) => `${state}-${viewport}.png`)),
+  ...INSPECTOR_SCREENSHOTS,
+]);
 
 export async function createDesktopVisualContactSheet({ screenshotsRoot, outputPath }) {
   const inventory = (await readdir(screenshotsRoot))
@@ -25,7 +32,7 @@ export async function createDesktopVisualContactSheet({ screenshotsRoot, outputP
   const unexpected = inventory.filter((name) => !expected.includes(name));
   if (missing.length > 0 || unexpected.length > 0) {
     throw new Error(
-      `Desktop contact sheet requires the exact 18-screenshot matrix; ` +
+      `Desktop contact sheet requires the exact 22-screenshot inventory; ` +
         `missing=[${missing.join(", ")}] unexpected=[${unexpected.join(", ")}]`,
     );
   }
@@ -57,7 +64,7 @@ export async function createDesktopVisualContactSheet({ screenshotsRoot, outputP
   await sharp({
     create: {
       width: cellWidth * VIEWPORTS.length,
-      height: cellHeight * STATES.length,
+      height: cellHeight * Math.ceil(DESKTOP_VISUAL_SCREENSHOTS.length / VIEWPORTS.length),
       channels: 4,
       background: "#090b0d",
     },

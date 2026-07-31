@@ -18,8 +18,26 @@ import { runMigrations } from "./storage/migrations.js";
 import { ProjectRepository } from "./storage/project-repository.js";
 
 const temporaryDirectories: string[] = [];
+const inspectorBindingConstructions = vi.hoisted(() => [] as unknown[]);
+
+vi.mock("./runtime/studio-inspector-service.js", () => ({
+  StudioInspectorService: class {
+    constructor(options: { readonly bindings: unknown }) {
+      inspectorBindingConstructions.push(options.bindings);
+    }
+
+    async children(): Promise<never> {
+      throw new Error("Production composition inspector fixture is read-only.");
+    }
+
+    async properties(): Promise<never> {
+      throw new Error("Production composition inspector fixture is read-only.");
+    }
+  },
+}));
 
 afterEach(async () => {
+  inspectorBindingConstructions.length = 0;
   await Promise.all(temporaryDirectories.splice(0).map((directory) => rm(directory, { recursive: true, force: true })));
 });
 
@@ -157,6 +175,7 @@ describe("post-migration production composition", () => {
       projects: [],
       settings: { preferredMcpPort: 58_741, sidebarWidth: 272 },
     });
+    expect(inspectorBindingConstructions).toEqual([composition.bindingCoordinator]);
     const removeIpc = composition.registerIpc();
     expect([...ipcHandlers.keys()]).toEqual(["rbxforge:request"]);
     composition.createWindow({

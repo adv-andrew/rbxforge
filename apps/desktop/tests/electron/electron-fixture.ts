@@ -6,7 +6,7 @@ import { _electron as electron, type ElectronApplication, type Page } from "@pla
 import { openDesktopDatabase } from "../../src/main/storage/database.js";
 import { runMigrations } from "../../src/main/storage/migrations.js";
 import { SettingsRepository, type WindowBounds } from "../../src/main/storage/settings-repository.js";
-import type { VisualState } from "../visual/visual-fixtures.js";
+import type { VisualFixtureState } from "../visual/visual-fixtures.js";
 
 export interface FixtureSize {
   readonly width: number;
@@ -40,7 +40,7 @@ const desktopRoot = resolve(import.meta.dirname, "../..");
 const fixtureMain = resolve(desktopRoot, "test-results/electron/fixture-main.cjs");
 
 export async function launchElectronFixture(
-  state: VisualState,
+  state: VisualFixtureState,
   size: FixtureSize,
   options: ElectronFixtureLaunchOptions = {},
 ): Promise<ElectronFixture> {
@@ -69,8 +69,16 @@ export async function launchElectronFixture(
         ...(options.holdExclusiveMutation === true ? ["--rbxforge-hold-exclusive-mutation"] : []),
         `--user-data-dir=${userDataDirectory}`,
         "--force-device-scale-factor=1",
+        "--force-color-profile=srgb",
+        "--lang=en-US",
       ],
       cwd: desktopRoot,
+      env: {
+        ...process.env,
+        LANG: "en_US.UTF-8",
+        LC_ALL: "en_US.UTF-8",
+        TZ: "UTC",
+      },
     });
     const consoleErrors: string[] = [];
     const pageErrors: string[] = [];
@@ -88,13 +96,13 @@ export async function launchElectronFixture(
     instrument(window);
     await window.waitForLoadState("domcontentloaded");
     if (options.preseedWindowBounds === undefined) {
-      await application.evaluate(({ BrowserWindow }, dimensions) => {
+      await application.evaluate(({ BrowserWindow, screen }, dimensions) => {
         const windows = BrowserWindow.getAllWindows();
         if (windows.length !== 1 || windows[0] === undefined) {
           throw new Error(`Expected one Electron fixture window, received ${windows.length}.`);
         }
-        const bounds = windows[0].getBounds();
-        windows[0].setBounds({ x: bounds.x, y: bounds.y, ...dimensions });
+        const primaryWorkArea = screen.getPrimaryDisplay().workArea;
+        windows[0].setBounds({ x: primaryWorkArea.x, y: primaryWorkArea.y, ...dimensions });
       }, size);
     }
     await window.waitForFunction(

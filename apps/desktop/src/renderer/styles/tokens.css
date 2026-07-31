@@ -34,8 +34,14 @@
   --thread-row-height: 32px;
   --duration-fast: 120ms;
   --duration-standard: 180ms;
+  --duration-indeterminate: 800ms;
   --content-max-width: 760px;
   --sidebar-default-width: 272px;
+  --inspector-width-wide: 360px;
+  --inspector-width-standard: 320px;
+  --inspector-width-compact: 360px;
+  --inspector-tree-indent-base: 6px;
+  --inspector-tree-indent-step: 14px;
   --header-height: 60px;
   --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", monospace;

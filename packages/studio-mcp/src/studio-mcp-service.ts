@@ -439,10 +439,18 @@ export class StudioMcpService {
     this.#stale = false;
   }
 
-  async children(path: string): Promise<readonly StudioNode[]> {
+  async children(path: string, options: StudioPropertyReadOptions = {}): Promise<readonly StudioNode[]> {
+    this.#assertExpectedInstance(options.expectedInstanceId);
     const instancePath = canonicalPath(path);
-    const body = await this.#invokeCapability("children", { instancePath });
+    const body = await this.#invokeCapability("children", { instancePath }, true, options.expectedInstanceId);
     const parsed = this.parse(childrenSchema, body, "Children response is invalid");
+    const responsePath = canonicalPath(parsed.instancePath);
+    if (responsePath !== instancePath) {
+      throw new McpResponseError("Children response path does not match the request");
+    }
+    if (parsed.count !== parsed.children.length) {
+      throw new McpResponseError("Children response count does not match the rows");
+    }
     return Object.freeze(parsed.children.map(freezeNode));
   }
 
@@ -456,8 +464,12 @@ export class StudioMcpService {
       options.expectedInstanceId,
     );
     const parsed = this.parse(propertiesSchema, body, "Properties response is invalid");
+    const responsePath = canonicalPath(parsed.instancePath);
+    if (responsePath !== instancePath) {
+      throw new McpResponseError("Properties response path does not match the request");
+    }
     return Object.freeze({
-      instancePath: canonicalPath(parsed.instancePath),
+      instancePath: responsePath,
       className: parsed.className,
       properties: Object.freeze({ ...parsed.properties }),
     });

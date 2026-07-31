@@ -14,6 +14,7 @@ import {
 } from "../components/ConnectionSheet/ConnectionSheet.js";
 import { ProjectHeader } from "../components/ProjectHeader/ProjectHeader.js";
 import { ProjectSidebar, ProjectSidebarLoading } from "../components/ProjectSidebar/ProjectSidebar.js";
+import { StudioInspector } from "../components/StudioInspector/StudioInspector.js";
 import { Button } from "../components/shared/Button.js";
 import { Dialog } from "../components/shared/Dialog.js";
 import { EmptyState } from "../components/shared/EmptyState.js";
@@ -36,6 +37,7 @@ import {
   type RequestKey,
 } from "./app-reducer.js";
 import { createDesktopClient, type DesktopClient, type RendererApi } from "./desktop-client.js";
+import { useStudioInspector } from "./useStudioInspector.js";
 import styles from "./App.module.css";
 
 export interface AppProps {
@@ -71,6 +73,17 @@ export function App({ api = window.rbxforge }: AppProps) {
       }),
     [api],
   );
+  const studioInspector = useStudioInspector(client, state.snapshot);
+  const inspectorOpenerRef = useRef<HTMLButtonElement | null>(null);
+  const inspectorWasOpenRef = useRef(false);
+
+  useEffect(() => {
+    const wasOpen = inspectorWasOpenRef.current;
+    inspectorWasOpenRef.current = studioInspector.state.isOpen;
+    if (!wasOpen || studioInspector.state.isOpen) return;
+    const opener = inspectorOpenerRef.current;
+    if (opener?.isConnected) opener.focus();
+  }, [studioInspector.state.isOpen]);
 
   const run = useCallback(
     async (
@@ -660,6 +673,10 @@ export function App({ api = window.rbxforge }: AppProps) {
             <ProjectHeader
               connecting={state.requests["runtime.connect"]?.inFlight === true}
               onOpenConnection={() => openConnection(view.project!.id)}
+              onOpenInspector={(opener) => {
+                inspectorOpenerRef.current = opener;
+                studioInspector.open();
+              }}
               project={view.project}
               runtime={selectedRuntime}
             />
@@ -667,6 +684,7 @@ export function App({ api = window.rbxforge }: AppProps) {
             <LocalProjectHeader projectName={view.project?.displayName} />
           )
         }
+        inspector={studioInspector.state.isOpen ? <StudioInspector controller={studioInspector} /> : undefined}
         main={
           <MainContent
             anyMutation={anyMutation}

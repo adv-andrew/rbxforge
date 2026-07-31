@@ -144,4 +144,65 @@ describe("ProjectHeader", () => {
       "false",
     );
   });
+
+  it("offers Studio inspection only for a complete bound identity", async () => {
+    const onOpenInspector = vi.fn();
+    render(
+      <ProjectHeader
+        onOpenInspector={onOpenInspector}
+        project={project()}
+        runtime={runtime({
+          state: "studio-bound",
+          broker: {
+            state: "ready",
+            primaryPort: 58_741,
+            legacyStatus: "unknown",
+            brokerEpoch: "broker-epoch-a",
+          },
+          studio: {
+            instanceId: "studio-instance-a",
+            placeId: 101,
+            placeName: "Deepwater",
+            dataModelName: "Deepwater",
+            role: "edit",
+            pluginVariant: "main",
+            pluginVersion: "2.22.5",
+            serverVersion: "2.22.5",
+            connectedAt: 1,
+            lastActivity: 2,
+          },
+          bindingRevision: 23,
+        })}
+      />,
+    );
+
+    const inspector = screen.getByRole("button", { name: "Inspect Studio" });
+    expect(inspector.getAttribute("title")).toBe("Inspect Studio");
+    await userEvent.click(inspector);
+    expect(onOpenInspector).toHaveBeenCalledTimes(1);
+  });
+
+  it.each([
+    "disconnected",
+    "starting-rojo",
+    "rojo-server-ready",
+    "waiting-for-studio",
+    "studio-selection-required",
+    "catalog-ambiguous",
+    "project-mismatch",
+    "needs-reconnect",
+    "error",
+  ] as const)("does not offer Studio inspection while runtime state is %s", (state) => {
+    render(<ProjectHeader onOpenInspector={vi.fn()} project={project()} runtime={runtime({ state })} />);
+
+    expect(screen.queryByRole("button", { name: "Inspect Studio" })).toBeNull();
+  });
+
+  it("does not offer Studio inspection for an incomplete bound identity", () => {
+    render(
+      <ProjectHeader onOpenInspector={vi.fn()} project={project()} runtime={runtime({ state: "studio-bound" })} />,
+    );
+
+    expect(screen.queryByRole("button", { name: "Inspect Studio" })).toBeNull();
+  });
 });

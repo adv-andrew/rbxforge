@@ -164,6 +164,39 @@ function runtime(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnapshot {
   };
 }
 
+function boundRuntime(overrides: Partial<RuntimeSnapshot> = {}): RuntimeSnapshot {
+  return runtime({
+    state: "studio-bound",
+    detail: "Studio is explicitly bound for read-only inspection.",
+    rojo: {
+      port: 34_872,
+      generation: 3,
+      executablePath: "/tools/rojo",
+      version: "7.8.0",
+    },
+    broker: {
+      state: "ready",
+      primaryPort: 58_741,
+      legacyStatus: "unknown",
+      brokerEpoch: "broker-epoch-a",
+    },
+    studio: {
+      instanceId: "studio-instance-a",
+      placeId: 101,
+      placeName: "Deepwater",
+      dataModelName: "Deepwater",
+      role: "edit",
+      pluginVariant: "main",
+      pluginVersion: "2.22.5",
+      serverVersion: "2.22.5",
+      connectedAt: 1,
+      lastActivity: 2,
+    },
+    bindingRevision: 23,
+    ...overrides,
+  });
+}
+
 function pluginResponse(
   command: DesktopCommandInput,
   current: DesktopSnapshot,
@@ -524,6 +557,242 @@ describe("project-scoped shell flows", () => {
     render(<App api={noThread.api} />);
     expect(await screen.findByText("Create a local conversation for this project.")).not.toBeNull();
     expect(screen.getByRole("button", { name: "New chat" })).not.toBeNull();
+  });
+});
+
+describe("Studio Inspector integration", () => {
+  it("opens from the complete bound header, requests game once, and keeps the conversation mounted", async () => {
+    const current = snapshot({
+      revision: 2,
+      runtimeByProject: { "project-a": boundRuntime() },
+    });
+    const harness = apiHarness(async (command) => {
+      if (command.type === "bootstrap") return { ...ok(command), snapshot: current };
+      if (command.type === "studioInspector.children") {
+        return {
+          ...ok(command, {
+            result: {
+              kind: "studio-inspector-children",
+              projectId: command.projectId,
+              instanceId: command.instanceId,
+              bindingRevision: command.bindingRevision,
+              brokerEpoch: "broker-epoch-a",
+              observedAt: 10,
+              instancePath: command.instancePath,
+              children: [
+                {
+                  name: "Workspace",
+                  className: "Workspace",
+                  path: "game.Workspace",
+                  hasChildren: true,
+                },
+              ],
+            },
+          }),
+          snapshot: current,
+        };
+      }
+      return { ...ok(command), snapshot: current };
+    });
+    render(<App api={harness.api} />);
+
+    const composer = await screen.findByRole("textbox", { name: "Local project prompt" });
+    const conversation = screen.getByRole("main", { name: "Conversation" });
+    const opener = await screen.findByRole("button", { name: "Inspect Studio" });
+    await userEvent.click(opener);
+
+    expect(await screen.findByRole("complementary", { name: "Studio inspector" })).not.toBeNull();
+    expect(await screen.findByRole("treeitem", { name: /Workspace/ })).not.toBeNull();
+    expect(conversation.contains(composer)).toBe(true);
+    expect(harness.request.mock.calls.filter(([command]) => command.type === "studioInspector.children")).toEqual([
+      [
+        {
+          type: "studioInspector.children",
+          projectId: "project-a",
+          instanceId: "studio-instance-a",
+          bindingRevision: 23,
+          instancePath: "game",
+          expectedRevision: 2,
+        },
+      ],
+    ]);
+
+    await userEvent.click(screen.getByRole("button", { name: "Close Studio inspector" }));
+    expect(screen.queryByRole("complementary", { name: "Studio inspector" })).toBeNull();
+    expect(document.activeElement).toBe(opener);
+  });
+
+  it("loads the exact selected node and displays its read-only properties", async () => {
+    const current = snapshot({
+      revision: 2,
+      runtimeByProject: { "project-a": boundRuntime() },
+    });
+    const harness = apiHarness(async (command) => {
+      if (command.type === "bootstrap") return { ...ok(command), snapshot: current };
+      if (command.type === "studioInspector.children") {
+        return {
+          ...ok(command, {
+            result: {
+              kind: "studio-inspector-children",
+              projectId: command.projectId,
+              instanceId: command.instanceId,
+              bindingRevision: command.bindingRevision,
+              brokerEpoch: "broker-epoch-a",
+              observedAt: 10,
+              instancePath: command.instancePath,
+              children: [
+                {
+                  name: "Workspace",
+                  className: "Workspace",
+                  path: "game.Workspace",
+                  hasChildren: false,
+                },
+              ],
+            },
+          }),
+          snapshot: current,
+        };
+      }
+      if (command.type === "studioInspector.properties") {
+        return {
+          ...ok(command, {
+            result: {
+              kind: "studio-inspector-properties",
+              projectId: command.projectId,
+              instanceId: command.instanceId,
+              bindingRevision: command.bindingRevision,
+              brokerEpoch: "broker-epoch-a",
+              observedAt: 11,
+              instancePath: command.instancePath,
+              className: "Workspace",
+              properties: [{ name: "Gravity", category: "Behavior", value: "196.2", valueKind: "number" }],
+            },
+          }),
+          snapshot: current,
+        };
+      }
+      return { ...ok(command), snapshot: current };
+    });
+    render(<App api={harness.api} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Inspect Studio" }));
+    await userEvent.click(await screen.findByRole("treeitem", { name: /Workspace/ }));
+    expect(await screen.findByText("Gravity")).not.toBeNull();
+    expect(document.querySelector("code[title='196.2']")?.textContent).toBe("196.2");
+    expect(harness.request.mock.calls.filter(([command]) => command.type === "studioInspector.properties")).toEqual([
+      [
+        {
+          type: "studioInspector.properties",
+          projectId: "project-a",
+          instanceId: "studio-instance-a",
+          bindingRevision: 23,
+          instancePath: "game.Workspace",
+          expectedRevision: 2,
+        },
+      ],
+    ]);
+  });
+
+  it("removes and clears the inspector synchronously when the binding revision changes", async () => {
+    let current = snapshot({
+      revision: 2,
+      runtimeByProject: { "project-a": boundRuntime() },
+    });
+    const harness = apiHarness(async (command) => {
+      if (command.type === "bootstrap") return { ...ok(command), snapshot: current };
+      if (command.type === "studioInspector.children") {
+        const name = command.bindingRevision === 23 ? "OldWorkspace" : "NewWorkspace";
+        return {
+          ...ok(command, {
+            result: {
+              kind: "studio-inspector-children",
+              projectId: command.projectId,
+              instanceId: command.instanceId,
+              bindingRevision: command.bindingRevision,
+              brokerEpoch: "broker-epoch-a",
+              observedAt: 10,
+              instancePath: command.instancePath,
+              children: [{ name, className: "Workspace", path: `game.${name}`, hasChildren: false }],
+            },
+          }),
+          snapshot: current,
+        };
+      }
+      return { ...ok(command), snapshot: current };
+    });
+    render(<App api={harness.api} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Inspect Studio" }));
+    expect(await screen.findByRole("treeitem", { name: /OldWorkspace/ })).not.toBeNull();
+
+    current = snapshot({
+      revision: 3,
+      runtimeByProject: { "project-a": boundRuntime({ bindingRevision: 24 }) },
+    });
+    act(() => harness.emit(current));
+    expect(screen.queryByRole("complementary", { name: "Studio inspector" })).toBeNull();
+
+    await userEvent.click(screen.getByRole("button", { name: "Inspect Studio" }));
+    expect(await screen.findByRole("treeitem", { name: /NewWorkspace/ })).not.toBeNull();
+    expect(screen.queryByRole("treeitem", { name: /OldWorkspace/ })).toBeNull();
+    const reads = harness.request.mock.calls
+      .map(([command]) => command)
+      .filter((command) => command.type === "studioInspector.children");
+    expect(reads.map((command) => command.bindingRevision)).toEqual([23, 24]);
+  });
+
+  it("clears an open inspector on project selection and withholds the action while disconnected", async () => {
+    const projectB = project({ id: "project-b", displayName: "Obby" });
+    let current = snapshot({
+      revision: 2,
+      projects: [project(), projectB],
+      threads: [thread(), thread({ id: "thread-b", projectId: "project-b", title: "Obby ideas" })],
+      selectedThreadIdByProject: { "project-a": "thread-a", "project-b": "thread-b" },
+      runtimeByProject: {
+        "project-a": boundRuntime(),
+        "project-b": boundRuntime({
+          detail: "Obby is disconnected.",
+          state: "disconnected",
+          broker: undefined,
+          studio: undefined,
+          bindingRevision: undefined,
+          rojo: undefined,
+        }),
+      },
+    });
+    const harness = apiHarness(async (command) => {
+      if (command.type === "bootstrap") return { ...ok(command), snapshot: current };
+      if (command.type === "studioInspector.children") {
+        return {
+          ...ok(command, {
+            result: {
+              kind: "studio-inspector-children",
+              projectId: command.projectId,
+              instanceId: command.instanceId,
+              bindingRevision: command.bindingRevision,
+              brokerEpoch: "broker-epoch-a",
+              observedAt: 10,
+              instancePath: command.instancePath,
+              children: [],
+            },
+          }),
+          snapshot: current,
+        };
+      }
+      if (command.type === "project.select") {
+        current = { ...current, revision: 3, selectedProjectId: command.projectId };
+      }
+      return { ...ok(command), snapshot: current };
+    });
+    render(<App api={harness.api} />);
+
+    await userEvent.click(await screen.findByRole("button", { name: "Inspect Studio" }));
+    expect(await screen.findByRole("complementary", { name: "Studio inspector" })).not.toBeNull();
+    await userEvent.click(screen.getByRole("button", { name: "Obby" }));
+    await screen.findByRole("button", { name: "Obby ideas" });
+    expect(screen.queryByRole("complementary", { name: "Studio inspector" })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Inspect Studio" })).toBeNull();
+    expect(screen.getByRole("textbox", { name: "Local project prompt" })).not.toBeNull();
   });
 });
 

@@ -24,6 +24,7 @@ import { ProjectRuntimeRegistry } from "./runtime/project-runtime-registry.js";
 import { RojoExecutableResolver } from "./runtime/rojo-executable.js";
 import type { StudioBrokerInvalidationReason, StudioBrokerSnapshot } from "./runtime/studio-broker-controller.js";
 import { StudioBrokerController } from "./runtime/studio-broker-controller.js";
+import { StudioInspectorService } from "./runtime/studio-inspector-service.js";
 import { StudioPluginInstaller } from "./runtime/studio-plugin-installer.js";
 import { ConversationRepository } from "./storage/conversation-repository.js";
 import { openDesktopDatabase, type DesktopDatabase } from "./storage/database.js";
@@ -198,6 +199,7 @@ export function createProductionComposition(options: {
     sourcePath: options.paths.pluginSourcePath,
     homeDirectory: options.homeDirectory,
   });
+  const inspector = new StudioInspectorService({ bindings });
   const appController = new AppController({
     projects,
     conversations,
@@ -213,6 +215,7 @@ export function createProductionComposition(options: {
     subscribeRuntimeInvalidation: (listener) => runtimeInvalidations.subscribe(listener),
     brokerProvider,
     bindings,
+    inspector,
   });
   const controller = {
     initialize: () => appController.initialize(),

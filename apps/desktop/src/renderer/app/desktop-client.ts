@@ -30,6 +30,18 @@ export interface DesktopClient {
   refreshRuntime(projectId: string): Promise<DesktopResponse>;
   copyMcpUrl(projectId: string): Promise<DesktopResponse>;
   copyRojoAddress(projectId: string): Promise<DesktopResponse>;
+  loadStudioChildren(
+    projectId: string,
+    instanceId: string,
+    bindingRevision: number,
+    instancePath: string,
+  ): Promise<DesktopResponse>;
+  loadStudioProperties(
+    projectId: string,
+    instanceId: string,
+    bindingRevision: number,
+    instancePath: string,
+  ): Promise<DesktopResponse>;
   inspectPlugin(): Promise<DesktopResponse>;
   installPlugin(confirmReplace: boolean): Promise<DesktopResponse>;
   showPluginFolder(): Promise<DesktopResponse>;
@@ -131,6 +143,24 @@ export function createDesktopClient(options: {
       options.api.request({ type: "runtime.refresh", projectId, expectedRevision: expectedRevision() }),
     copyMcpUrl: (projectId) => options.api.request({ type: "runtime.copyMcpUrl", projectId }),
     copyRojoAddress: (projectId) => options.api.request({ type: "runtime.copyRojoAddress", projectId }),
+    loadStudioChildren: (projectId, instanceId, bindingRevision, instancePath) =>
+      options.api.request({
+        type: "studioInspector.children",
+        projectId,
+        instanceId,
+        bindingRevision,
+        instancePath,
+        expectedRevision: expectedRevision(),
+      }),
+    loadStudioProperties: (projectId, instanceId, bindingRevision, instancePath) =>
+      options.api.request({
+        type: "studioInspector.properties",
+        projectId,
+        instanceId,
+        bindingRevision,
+        instancePath,
+        expectedRevision: expectedRevision(),
+      }),
     inspectPlugin: () => options.api.request({ type: "plugin.inspect" }),
     installPlugin: (confirmReplace) =>
       options.api.request({

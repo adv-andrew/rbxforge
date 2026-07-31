@@ -49,6 +49,7 @@ test("launches one hardened window with native geometry, blocked escape hatches,
     expect(geometry.minimumSize).toEqual([960, 640]);
     expect(geometry.buttonPosition).toEqual({ x: 14, y: 14 });
     expect(await fixture.window.evaluate(() => globalThis.devicePixelRatio)).toBe(1);
+    expect(await fixture.application.evaluate(() => process.argv)).toContain("--force-color-profile=srgb");
 
     const rendererBoundary = await fixture.window.evaluate(() => ({
       processType: typeof (globalThis as { process?: unknown }).process,

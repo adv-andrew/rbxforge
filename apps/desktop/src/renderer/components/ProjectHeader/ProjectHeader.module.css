@@ -83,3 +83,9 @@
   margin: 0;
   overflow-wrap: anywhere;
 }
+
+@media (max-width: 1100px) {
+  .inspectorLabel {
+    display: none;
+  }
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { desktopCommandSchema, desktopEventSchema } from "./protocol.js";
+import { desktopCommandSchema, desktopEventSchema, desktopResponseSchema } from "./protocol.js";
 
 describe("desktop protocol", () => {
   it("requires host-owned pinned Studio MCP identity and global port-change eligibility", () => {
@@ -91,6 +91,139 @@ describe("desktop protocol", () => {
         injectedInstanceId: "place:attacker",
       }),
     ).toThrow();
+  });
+
+  it.each(["studioInspector.children", "studioInspector.properties"] as const)(
+    "accepts an exact-bound canonical %s command",
+    (type) => {
+      const command = {
+        version: 1 as const,
+        requestId: "inspect-1",
+        type,
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 7,
+        instancePath: "game.Workspace",
+        expectedRevision: 19,
+      };
+
+      expect(desktopCommandSchema.parse(command)).toEqual(command);
+    },
+  );
+
+  it.each(["studioInspector.children", "studioInspector.properties"] as const)(
+    "rejects forged, incomplete, unsafe, noncanonical, or oversized %s commands",
+    (type) => {
+      const command: Record<string, unknown> = {
+        version: 1,
+        requestId: "inspect-1",
+        type,
+        projectId: "project-a",
+        instanceId: "studio-a",
+        bindingRevision: 7,
+        instancePath: "game.Workspace",
+        expectedRevision: 19,
+      };
+
+      for (const extra of [
+        { tool: "get_children" },
+        { instance_id: "studio-attacker" },
+        { brokerEpoch: "renderer-owned-epoch" },
+      ]) {
+        expect(desktopCommandSchema.safeParse({ ...command, ...extra }).success).toBe(false);
+      }
+      for (const missing of ["projectId", "instanceId", "bindingRevision", "instancePath", "expectedRevision"]) {
+        const incomplete = Object.fromEntries(Object.entries(command).filter(([key]) => key !== missing));
+        expect(desktopCommandSchema.safeParse(incomplete).success).toBe(false);
+      }
+      for (const instancePath of [
+        "workspace.Part",
+        "game.Workspace.",
+        'game["Workspace"]',
+        `game["${"x".repeat(4_090)}"]`,
+      ]) {
+        expect(desktopCommandSchema.safeParse({ ...command, instancePath }).success).toBe(false);
+      }
+    },
+  );
+
+  it("parses bounded strict Studio inspector children results", () => {
+    const children = Array.from({ length: 1_000 }, (_, index) => ({
+      name: `Part_${index}`,
+      className: "Part",
+      path: `game.Workspace.Part_${index}`,
+      hasChildren: false,
+    }));
+    const result = {
+      kind: "studio-inspector-children" as const,
+      projectId: "project-a",
+      instanceId: "studio-a",
+      bindingRevision: 7,
+      brokerEpoch: "epoch-a",
+      observedAt: 20,
+      instancePath: "game.Workspace",
+      children,
+    };
+
+    expect(inspectorResponse(result).result).toEqual(result);
+    expect(
+      desktopResponseSchema.safeParse({
+        ...inspectorResponseInput(result),
+        result: { ...result, children: [...children, { ...children[0], name: "Overflow" }] },
+      }).success,
+    ).toBe(false);
+    expect(
+      desktopResponseSchema.safeParse({
+        ...inspectorResponseInput(result),
+        result: { ...result, rawMcpPayload: {} },
+      }).success,
+    ).toBe(false);
+    expect(
+      desktopResponseSchema.safeParse({
+        ...inspectorResponseInput(result),
+        result: { ...result, children: [{ ...children[0], tool: "get_children" }] },
+      }).success,
+    ).toBe(false);
+  });
+
+  it("parses bounded strict Studio inspector properties results", () => {
+    const properties = Array.from({ length: 512 }, (_, index) => ({
+      name: `Property_${index}`,
+      category: "Data" as const,
+      value: String(index),
+      valueKind: "number" as const,
+    }));
+    const result = {
+      kind: "studio-inspector-properties" as const,
+      projectId: "project-a",
+      instanceId: "studio-a",
+      bindingRevision: 7,
+      brokerEpoch: "epoch-a",
+      observedAt: 20,
+      instancePath: "game.Workspace.Part",
+      className: "Part",
+      properties,
+    };
+
+    expect(inspectorResponse(result).result).toEqual(result);
+    expect(
+      desktopResponseSchema.safeParse({
+        ...inspectorResponseInput(result),
+        result: { ...result, properties: [...properties, { ...properties[0], name: "Overflow" }] },
+      }).success,
+    ).toBe(false);
+    expect(
+      desktopResponseSchema.safeParse({
+        ...inspectorResponseInput(result),
+        result: { ...result, rawMcpPayload: {} },
+      }).success,
+    ).toBe(false);
+    expect(
+      desktopResponseSchema.safeParse({
+        ...inspectorResponseInput(result),
+        result: { ...result, properties: [{ ...properties[0], secret: "must-not-cross" }] },
+      }).success,
+    ).toBe(false);
   });
 
   it("does not allow runtime identity in a persisted bootstrap event", () => {
@@ -381,3 +514,30 @@ describe("desktop protocol", () => {
     ).toBe(false);
   });
 });
+
+function inspectorResponseInput(result: unknown) {
+  return {
+    version: 1 as const,
+    requestId: "inspect-1",
+    ok: true as const,
+    snapshot: {
+      revision: 19,
+      projects: [],
+      threads: [],
+      messages: [],
+      drafts: [],
+      selectedThreadIdByProject: {},
+      runtimeByProject: {},
+      settings: {
+        preferredMcpPort: 58_741,
+        sidebarWidth: 272,
+        mcpPortChangeAllowed: true,
+      },
+    },
+    result,
+  };
+}
+
+function inspectorResponse(result: unknown) {
+  return desktopResponseSchema.parse(inspectorResponseInput(result));
+}
